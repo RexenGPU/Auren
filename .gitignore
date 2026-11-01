@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Packaged artifacts (published as GitHub Release assets instead)
+release/
+
+# Local logs and editor folders
+*.log
+.vscode/
+.idea/
+Thumbs.db
+Desktop.ini

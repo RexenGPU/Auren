@@ -1,0 +1,128 @@
+{
+  "name": "auren",
+  "productName": "Auren",
+  "version": "1.0.0",
+  "description": "AUREN — Create without limits. A premium, local-first Windows word processor.",
+  "author": {
+    "name": "AUREN Studio"
+  },
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build:renderer": "vite build",
+    "build:main": "node scripts/build-main.mjs",
+    "build": "npm run build:renderer && npm run build:main",
+    "start": "npm run build && electron .",
+    "dist": "npm run build && electron-builder --win nsis portable",
+    "dist:dir": "npm run build && electron-builder --win --dir",
+    "test": "node tests/run.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dictionary-en": "^4.0.0",
+    "dictionary-fr": "^3.0.0",
+    "nspell": "^2.1.5",
+    "pdf-parse": "^2.4.5",
+    "word-extractor": "^1.0.4"
+  },
+  "devDependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource-variable/jetbrains-mono": "^5.2.8",
+    "@fontsource-variable/newsreader": "^5.2.8",
+    "@tiptap/extension-character-count": "2.27.3",
+    "@tiptap/extension-color": "2.27.3",
+    "@tiptap/extension-font-family": "2.27.3",
+    "@tiptap/extension-highlight": "2.27.3",
+    "@tiptap/extension-image": "2.27.3",
+    "@tiptap/extension-link": "2.27.3",
+    "@tiptap/extension-placeholder": "2.27.3",
+    "@tiptap/extension-subscript": "2.27.3",
+    "@tiptap/extension-superscript": "2.27.3",
+    "@tiptap/extension-table": "2.27.3",
+    "@tiptap/extension-table-cell": "2.27.3",
+    "@tiptap/extension-table-header": "2.27.3",
+    "@tiptap/extension-table-row": "2.27.3",
+    "@tiptap/extension-task-item": "2.27.3",
+    "@tiptap/extension-task-list": "2.27.3",
+    "@tiptap/extension-text-align": "2.27.3",
+    "@tiptap/extension-text-style": "2.27.3",
+    "@tiptap/extension-underline": "2.27.3",
+    "@tiptap/pm": "2.27.3",
+    "@tiptap/react": "2.27.3",
+    "@tiptap/starter-kit": "2.27.3",
+    "@types/dompurify": "^3.2.0",
+    "@types/node": "^24.10.0",
+    "@types/react": "^18.3.26",
+    "@types/react-dom": "^18.3.7",
+    "@types/turndown": "^5.0.6",
+    "@vitejs/plugin-react": "^5.1.0",
+    "diff": "^8.0.2",
+    "docx": "^9.5.1",
+    "dompurify": "^3.3.0",
+    "electron": "44.10.0",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.12",
+    "fast-xml-parser": "^5.3.1",
+    "image-size": "^2.0.2",
+    "jszip": "^3.10.1",
+    "katex": "^0.16.25",
+    "lucide-react": "^0.553.0",
+    "marked": "^16.4.1",
+    "pdf-lib": "^1.17.1",
+    "playwright": "^1.56.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "turndown": "^7.2.1",
+    "turndown-plugin-gfm": "^1.0.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.2",
+    "zustand": "^5.0.8"
+  },
+  "build": {
+    "appId": "studio.auren.desktop",
+    "productName": "Auren",
+    "copyright": "Copyright © 2026 AUREN Studio",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "npmRebuild": false,
+    "electronLanguages": ["en-US", "fr"],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "artifactName": "Auren-Setup.exe",
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AUREN",
+      "uninstallDisplayName": "AUREN",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "Auren.exe",
+      "requestExecutionLevel": "user"
+    }
+  }
+}
