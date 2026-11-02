@@ -232,6 +232,7 @@ a { color: var(--accent); text-decoration: none; }
   color: var(--accent);
 }
 .brand-mark svg { width: 18px; height: 18px; }
+.brand-logo { display: block; object-fit: contain; user-select: none; }
 .titlebar-center {
   flex: 1;
   display: flex;

@@ -1,5 +1,10 @@
 // Ambient declarations for small CommonJS packages that do not ship types.
 
+declare module '*.png' {
+  const source: string;
+  export default source;
+}
+
 declare module 'word-extractor' {
   interface ExtractedDocument {
     getBody(): string;

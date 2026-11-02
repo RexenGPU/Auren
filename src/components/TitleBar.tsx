@@ -3,13 +3,19 @@ import { Maximize2, Minimize2, Minus, Search, X } from 'lucide-react';
 import { useAppStore } from '../store/app';
 import { useT } from '../lib/utils';
 import { IconButton, Kbd } from './ui';
+import logoUrl from '../assets/auren-logo.png';
+
 export function BrandMark({ size = 18 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 2.6 21.4 12 12 21.4 2.6 12 12 2.6Z" stroke="currentColor" strokeWidth="1.25" strokeLinejoin="round" />
-      <path d="M12 7.1 16.9 12 12 16.9 7.1 12 12 7.1Z" fill="currentColor" opacity="0.9" />
-      <path d="M12 9.6v4.8" stroke="var(--bg)" strokeWidth="1.1" strokeLinecap="round" opacity="0.65" />
-    </svg>
+    <img
+      className="brand-logo"
+      src={logoUrl}
+      width={size}
+      height={size}
+      alt=""
+      aria-hidden="true"
+      draggable={false}
+    />
   );
 }
 

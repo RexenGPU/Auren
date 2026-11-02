@@ -1,86 +1,51 @@
-"""Generate AUREN application icons (ICO + PNG) from the brand mark.
+"""Generate AUREN application icons from the supplied brand artwork.
 
-The mark mirrors the in-app SVG: a diamond outline, a filled inner diamond,
-and a vertical notch cut through the middle.
+Source: build/icon-source.png (transparent PNG, purple document with the A mark).
+The artwork is cropped to its visible alpha bounds, padded onto a square
+transparent canvas, and exported as a multi-resolution Windows ICO plus the
+PNG assets used by the renderer and the release folder.
 """
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image
 import os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BUILD = os.path.join(ROOT, "build")
+ASSETS = os.path.join(ROOT, "src", "assets")
+SOURCE = os.path.join(BUILD, "icon-source.png")
+MASTER_SIZE = 1024
+PADDING = 0.055  # fraction of the artwork's longest side
+
 os.makedirs(BUILD, exist_ok=True)
+os.makedirs(ASSETS, exist_ok=True)
 
-S = 1024  # master canvas
-ACCENT = (167, 152, 255, 255)
-ACCENT_DEEP = (139, 124, 246, 255)
-BG_TOP = (26, 22, 40, 255)
-BG_BOTTOM = (10, 9, 16, 255)
+image = Image.open(SOURCE).convert("RGBA")
 
+# Crop away the transparent canvas and the faint clipped shadow tail.
+alpha = image.getchannel("A")
+visible = alpha.point(lambda value: 255 if value > 8 else 0).getbbox()
+if not visible:
+    raise SystemExit("icon-source.png has no visible pixels")
+content = image.crop(visible)
 
-def diamond(cx, cy, half):
-    return [(cx, cy - half), (cx + half, cy), (cx, cy + half), (cx - half, cy)]
+width, height = content.size
+side = round(max(width, height) * (1 + PADDING * 2))
+master = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+master.alpha_composite(content, ((side - width) // 2, (side - height) // 2))
+master = master.resize((MASTER_SIZE, MASTER_SIZE), Image.LANCZOS)
 
-
-def build_master():
-    img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-
-    # Rounded-square body with a vertical gradient.
-    body = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    grad = Image.new("RGBA", (S, S))
-    gd = grad.load()
-    for y in range(S):
-        t = y / (S - 1)
-        r = round(BG_TOP[0] + (BG_BOTTOM[0] - BG_TOP[0]) * t)
-        g = round(BG_TOP[1] + (BG_BOTTOM[1] - BG_TOP[1]) * t)
-        b = round(BG_TOP[2] + (BG_BOTTOM[2] - BG_TOP[2]) * t)
-        for x in range(S):
-            gd[x, y] = (r, g, b, 255)
-    mask = Image.new("L", (S, S), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, S - 1, S - 1], radius=196, fill=255)
-    body.paste(grad, (0, 0), mask)
-
-    # Purple glow behind the mark.
-    glow = Image.new("RGBA", (S, S), (0, 0, 0, 0))
-    gdr = ImageDraw.Draw(glow)
-    gdr.ellipse([S * 0.16, S * 0.16, S * 0.84, S * 0.84], fill=(139, 124, 246, 92))
-    glow = glow.filter(ImageFilter.GaussianBlur(120))
-    body = Image.alpha_composite(body, Image.composite(glow, Image.new("RGBA", (S, S), (0, 0, 0, 0)), mask))
-
-    draw = ImageDraw.Draw(body)
-    draw.rounded_rectangle([3, 3, S - 4, S - 4], radius=194, outline=(255, 255, 255, 34), width=5)
-    draw.rounded_rectangle([10, 10, S - 11, S - 11], radius=188, outline=(255, 255, 255, 14), width=2)
-
-    # Diamond outline.
-    cx = cy = S / 2
-    outer = diamond(cx, cy, S * 0.365)
-    draw.line(outer + [outer[0]], fill=ACCENT, width=40, joint="curve")
-    for point in outer:
-        draw.ellipse([point[0] - 20, point[1] - 20, point[0] + 20, point[1] + 20], fill=ACCENT)
-
-    # Inner filled diamond.
-    inner = diamond(cx, cy, S * 0.175)
-    draw.polygon(inner, fill=ACCENT)
-    draw.line(inner + [inner[0]], fill=ACCENT_DEEP, width=6, joint="curve")
-
-    # Vertical notch, echoing the in-app mark.
-    draw.line([(cx, cy - S * 0.108), (cx, cy + S * 0.108)], fill=(22, 19, 33, 215), width=26)
-
-    return body
-
-
-master = build_master()
 master.save(os.path.join(BUILD, "icon.png"))
 master.resize((512, 512), Image.LANCZOS).save(os.path.join(BUILD, "icon-512.png"))
+master.resize((256, 256), Image.LANCZOS).save(os.path.join(ASSETS, "auren-logo.png"))
 
 sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256]
-frames = [master.resize((n, n), Image.LANCZOS) for n in sizes]
-frames[-1].save(
+master.save(
     os.path.join(BUILD, "icon.ico"),
     format="ICO",
-    sizes=[(n, n) for n in sizes],
-    append_images=frames[:-1],
+    sizes=[(size, size) for size in sizes],
 )
 
 print("Wrote", os.path.join(BUILD, "icon.ico"))
 print("Wrote", os.path.join(BUILD, "icon.png"))
+print("Wrote", os.path.join(BUILD, "icon-512.png"))
+print("Wrote", os.path.join(ASSETS, "auren-logo.png"))

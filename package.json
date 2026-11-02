@@ -1,7 +1,7 @@
 {
   "name": "auren",
   "productName": "Auren",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "AUREN — Create without limits. A premium, local-first Windows word processor.",
   "author": {
     "name": "AUREN Studio"
@@ -97,12 +97,25 @@
       "**/*.node"
     ],
     "npmRebuild": false,
-    "electronLanguages": ["en-US", "fr"],
+    "electronLanguages": [
+      "en-US",
+      "fr"
+    ],
     "win": {
       "icon": "build/icon.ico",
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "nsis": {
