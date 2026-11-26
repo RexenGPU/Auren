@@ -6,7 +6,7 @@ AUREN is a premium, local-first Windows word processor for long-form writing, re
 
 AUREN has no account, no cloud, no telemetry, and no automatic uploads. The application is fully usable offline.
 
-> **Version 1.0.1** · Windows 10/11 x64 · Electron 44.10.0 · Chromium 152 · Node 24.22.1
+> **Version 1.1.0** · Windows 10/11 x64 · Electron 44.10.0 · Chromium 152 · Node 24.22.1
 
 ---
 
@@ -550,8 +550,8 @@ The installer and portable executable are self-contained. No separate Node, Rust
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `Auren-Setup.exe` | `A326461E2F86B528D8D04B9ACDD0342D02A588D969A1E8028D28602C9C1537BD` |
-| `Auren.exe` | `CF2C64A554BBBAA63104E03202973F477782CC5546C8E8A49BE3304C94816B2F` |
+| `Auren-Setup.exe` | `B1AA2AF9DF103ED41BBD4CEBF70CDA4694539913D718C1CBF1472FDE48C69AE7` |
+| `Auren.exe` | `499D0136718BC69719809A7517F985C43B0264E6B1A0B3E514878BE5B657F402` |
 | `Auren.ico` | `6300BAAF1F860BD4AF5D3D411739634FC1F140545671022B7EFFD2013093579C` |
 
 ---
