@@ -354,7 +354,13 @@ try {
   const favorites = await win.evaluate(() => window.auren.library.list({ view: 'favorites' }));
   assert.ok(favorites.some((item) => item.id === secondId), 'favorite filter works');
   const search = await win.evaluate(() => window.auren.library.search('Renamed'));
-  assert.ok(search.some((item) => item.id === secondId), 'search finds renamed document');
+  assert.ok(search.some((hit) => hit.document.id === secondId), 'search finds renamed document');
+  assert.ok(search.every((hit) => typeof hit.snippet === 'string'), 'search returns snippets');
+  const accentHit = await win.evaluate(async () => {
+    const doc = await window.auren.library.create({ title: 'Café résumé', html: '<p>Un résumé détaillé du projet.</p>' });
+    return { id: doc.meta.id, hits: await window.auren.library.search('cafe resume') };
+  });
+  assert.ok(accentHit.hits.some((hit) => hit.document.id === accentHit.id), 'FTS search ignores accents');
   const sorted = await win.evaluate(() => window.auren.library.list({ view: 'documents', sort: 'title', direction: 'asc' }));
   assert.ok(sorted.length >= 3, 'sorted list has documents');
 
@@ -430,6 +436,55 @@ try {
   await win.evaluate((id) => window.auren.library.purge(id), purgeTarget);
   const afterPurge = await win.evaluate(() => window.auren.library.list({ view: 'trash' }));
   assert.ok(!afterPurge.some((item) => item.id === purgeTarget), 'purge removes document');
+
+  /* -------------------------------------- dictionary, snapshots, writing stats */
+  await win.evaluate(() => window.auren.settings.update({ customDictionary: ['tehz'] }));
+  const filteredSpell = await win.evaluate(() => window.auren.spell.check(['teh', 'tehz'], ['en', 'fr']));
+  assert.ok(!filteredSpell.unknown.includes('tehz'), 'custom dictionary accepts added words');
+  assert.ok(filteredSpell.unknown.includes('teh'), 'custom dictionary does not hide real misspellings');
+
+  await win.evaluate(() => window.auren.settings.update({ autoVersions: true, autoVersionInterval: 1, autoVersionWordDelta: 2 }));
+  const snapshotDoc = await win.evaluate(async () => {
+    const doc = await window.auren.library.create({ title: 'Snapshot subject', html: '<p>Alpha</p>' });
+    await window.auren.library.save(doc.meta.id, {
+      title: doc.meta.title,
+      content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Alpha' }] }] },
+      html: '<p>Alpha</p>', wordCount: 1, charCount: 5, excerpt: 'Alpha'
+    });
+    await window.auren.library.save(doc.meta.id, {
+      title: doc.meta.title,
+      content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Alpha beta gamma' }] }] },
+      html: '<p>Alpha beta gamma</p>', wordCount: 3, charCount: 16, excerpt: 'Alpha beta gamma'
+    });
+    return doc;
+  });
+  const snapshots = await win.evaluate((id) => window.auren.library.versions(id), snapshotDoc.meta.id);
+  assert.ok(snapshots.some((version) => version.reason === 'snapshot'), 'automatic snapshots are recorded');
+  const writingStats = await win.evaluate(() => window.auren.library.writingStats(7));
+  assert.ok(writingStats.todayWords > 0, 'writing stats record words added today');
+  assert.equal(writingStats.days.length, 7, 'writing stats return the requested history length');
+
+  /* ------------------------------------------------------- backup + restore */
+  const backupPath = path.join(out, 'AUREN-Backup.zip');
+  await stubSave(app, backupPath);
+  const backupResult = await win.evaluate(() => window.auren.settings.backup());
+  assert.equal(backupResult.canceled, false, 'backup created');
+  assert.ok(fs.existsSync(backupPath), 'backup file exists');
+  const afterBackup = await win.evaluate(async () => {
+    const doc = await window.auren.library.create({ title: 'Created after backup', html: '<p>Should be removed by restore.</p>' });
+    return doc.meta.id;
+  });
+  await app.evaluate(({ dialog }, filePath) => {
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [filePath] });
+    dialog.showMessageBox = async () => ({ response: 0 });
+  }, backupPath);
+  const restoreResult = await win.evaluate(() => window.auren.settings.restoreBackup());
+  assert.equal(restoreResult.canceled, false, 'backup restored');
+  assert.ok(fs.existsSync(restoreResult.safetyPath), 'safety backup written before restore');
+  const afterRestore = await win.evaluate(() => window.auren.library.list({ view: 'documents' }));
+  assert.ok(!afterRestore.some((item) => item.id === afterBackup), 'restore removes documents created after the backup');
+  assert.ok(afterRestore.some((item) => item.id === richId), 'restore keeps documents from the backup');
+  console.log('DICTIONARY, SNAPSHOTS, STATS, BACKUP RESTORE OK');
 
   /* ------------------------------------------------------ spell + AI paths */
   const spell = await win.evaluate(() => window.auren.spell.check(['teh', 'bonjour', 'hello'], ['en', 'fr']));

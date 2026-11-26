@@ -37,6 +37,7 @@ const api: AurenApi = {
     emptyTrash: () => ipcRenderer.invoke('library:empty-trash'),
     updateMeta: (id, patch) => ipcRenderer.invoke('library:update-meta', id, patch),
     search: (query) => ipcRenderer.invoke('library:search', query),
+    writingStats: (days) => ipcRenderer.invoke('library:writing-stats', days),
     versions: (id) => ipcRenderer.invoke('library:versions', id),
     version: (id, versionId) => ipcRenderer.invoke('library:version', id, versionId),
     createVersion: (id, label) => ipcRenderer.invoke('library:create-version', id, label),
@@ -73,7 +74,8 @@ const api: AurenApi = {
     clearSecret: (provider) => ipcRenderer.invoke('settings:clear-secret', provider),
     testAI: (provider, model, baseUrl, key) => ipcRenderer.invoke('settings:test-ai', provider, model, baseUrl, key),
     changeRoot: () => ipcRenderer.invoke('settings:change-root'),
-    backup: () => ipcRenderer.invoke('settings:backup')
+    backup: () => ipcRenderer.invoke('settings:backup'),
+    restoreBackup: () => ipcRenderer.invoke('settings:restore-backup')
   },
   ai: {
     chat: (payload) => ipcRenderer.invoke('ai:chat', payload),

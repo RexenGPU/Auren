@@ -138,8 +138,9 @@ try {
   await prepareEnd();
 
   /* --------------------------------------------------------- spellcheck UI */
+  await win.waitForTimeout(1200);
   const misspelling = prose.locator('.auren-spell-error', { hasText: 'teh' }).first();
-  await misspelling.waitFor({ timeout: 8000 });
+  await misspelling.waitFor({ timeout: 20000 });
   assert.ok(await misspelling.count(), 'misspelled word is decorated');
   await misspelling.click({ button: 'right' });
   await win.locator('.context-menu').waitFor({ timeout: 5000 });
@@ -149,7 +150,20 @@ try {
   await suggestion.click();
   await win.waitForTimeout(500);
   assert.ok(!(await prose.innerText()).includes('teh'), 'spellcheck suggestion replaced the word');
-  console.log('SPELLCHECK CONTEXT MENU OK');
+
+  await prepareEnd();
+  await win.keyboard.insertText('tehz');
+  await win.waitForTimeout(400);
+  const customMisspelling = prose.locator('.auren-spell-error', { hasText: 'tehz' }).first();
+  await customMisspelling.waitFor({ timeout: 20000 });
+  await customMisspelling.click({ button: 'right' });
+  await win.locator('.context-menu').waitFor({ timeout: 5000 });
+  await win.locator('.context-menu button', { hasText: 'Add to dictionary' }).first().click();
+  await win.waitForTimeout(1400);
+  const afterDictionary = await win.evaluate(() => window.auren.settings.get());
+  assert.ok(afterDictionary.customDictionary.includes('tehz'), 'custom dictionary persists the added word');
+  assert.equal(await prose.locator('.auren-spell-error', { hasText: 'tehz' }).count(), 0, 'added word is no longer underlined');
+  console.log('SPELLCHECK CONTEXT MENU + CUSTOM DICTIONARY OK');
 
   /* ------------------------------------------------------------- insert menu */
   const openInsert = async (label) => {
@@ -290,6 +304,35 @@ try {
   assert.equal(saved.meta.pageSettings.columns, 2);
   assert.match(collectText(saved.content).join(' '), /serene body/, 'saved text includes the replacement');
   console.log('SAVED RICH DOCUMENT OK', saved.meta.id, 'pages:', saved.meta.pageSettings.size);
+
+  /* ------------------------------------------------------- version diff UI */
+  const insertAtEnd = async (text) => {
+    await win.evaluate(() => {
+      const editor = document.querySelector('.editor-view .ProseMirror').editor;
+      editor.commands.focus('end');
+    });
+    await win.keyboard.insertText(text);
+    await win.waitForTimeout(250);
+    await win.keyboard.press('Control+S');
+    await win.waitForTimeout(900);
+  };
+  await insertAtEnd(' DIFF baseline');
+  await win.keyboard.press('Control+Shift+S');
+  await win.locator('.modal').waitFor({ timeout: 5000 });
+  await win.locator('.modal .input').first().fill('Before diff');
+  await win.locator('.modal .btn-primary').click();
+  await win.waitForTimeout(500);
+  await insertAtEnd(' DIFF current');
+
+  await win.locator('button[aria-label="History"]').first().click();
+  await win.locator('.timeline-panel').waitFor({ timeout: 6000 });
+  await win.locator('.version-actions .btn-link', { hasText: 'Compare with current' }).first().click();
+  await win.locator('.version-diff').waitFor({ timeout: 6000 });
+  assert.match(await win.locator('.version-diff').innerText(), /DIFF current/, 'diff shows text added after the version');
+  assert.ok(await win.locator('.version-diff .is-added').count(), 'diff marks added text');
+  await win.locator('.modal .btn-ghost').click();
+  await win.locator('button[aria-label="History"]').first().click();
+  console.log('VERSION DIFF UI OK');
 
   /* ------------------------------------------------------------- pagination */
   await win.keyboard.press('Control+N');

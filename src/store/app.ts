@@ -13,7 +13,8 @@ import type {
   LibraryStats,
   RecoveryCandidate,
   VersionMeta,
-  Workspace
+  Workspace,
+  WritingStats
 } from '../../shared/types';
 import type { ConversionPreview, CreateDocumentPayload } from '../../shared/api';
 import { createPageSettings } from '../lib/page';
@@ -57,6 +58,7 @@ interface AppState {
   workspaces: Workspace[];
   folders: string[];
   stats: LibraryStats | null;
+  writing: WritingStats | null;
   activity: ActivityEntry[];
   recovery: RecoveryCandidate[];
   pendingImport: ConversionPreview | null;
@@ -85,6 +87,7 @@ interface AppState {
   showLibrary(filter?: Partial<LibraryFilter>): Promise<void>;
   setLibraryFilter(patch: Partial<LibraryFilter>): Promise<void>;
   refreshLibrary(): Promise<void>;
+  refreshWritingStats(): Promise<void>;
   loadDashboard(): Promise<void>;
   openDocument(id: string): Promise<void>;
   createDocument(payload: CreateDocumentPayload): Promise<AurenDocument | null>;
@@ -148,6 +151,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   workspaces: [],
   folders: [],
   stats: null,
+  writing: null,
   activity: [],
   recovery: [],
   pendingImport: null,
@@ -171,12 +175,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (initStarted) return;
     initStarted = true;
     try {
-      const [settings, appInfo, workspaces, folders, stats, activity, recentDocs, docs, recovery] = await Promise.all([
+      const [settings, appInfo, workspaces, folders, stats, writing, activity, recentDocs, docs, recovery] = await Promise.all([
         window.auren.settings.get(),
         window.auren.app.info(),
         window.auren.library.workspaces(),
         window.auren.library.folders(),
         window.auren.library.stats(),
+        window.auren.library.writingStats(84),
         window.auren.library.activity(40),
         window.auren.library.list({ view: 'recent', sort: 'opened', direction: 'desc' }),
         window.auren.library.list({ view: 'documents', sort: 'updated', direction: 'desc' }),
@@ -191,6 +196,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         workspaces,
         folders,
         stats,
+        writing,
         activity,
         recentDocs,
         docs,
@@ -316,16 +322,26 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  async refreshWritingStats() {
+    try {
+      const writing = await window.auren.library.writingStats(84);
+      set({ writing });
+    } catch (error) {
+      get().toast(error instanceof Error ? error.message : String(error), 'error');
+    }
+  },
+
   async loadDashboard() {
     try {
-      const [recentDocs, stats, activity, workspaces, folders] = await Promise.all([
+      const [recentDocs, stats, writing, activity, workspaces, folders] = await Promise.all([
         window.auren.library.list({ view: 'recent', sort: 'opened', direction: 'desc', search: '' }),
         window.auren.library.stats(),
+        window.auren.library.writingStats(84),
         window.auren.library.activity(40),
         window.auren.library.workspaces(),
         window.auren.library.folders()
       ]);
-      set({ recentDocs, stats, activity, workspaces, folders });
+      set({ recentDocs, stats, writing, activity, workspaces, folders });
     } catch (error) {
       get().toast(error instanceof Error ? error.message : String(error), 'error');
     }

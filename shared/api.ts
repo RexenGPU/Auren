@@ -15,7 +15,10 @@ import type {
   LibraryStats,
   PageSettings,
   RecoveryCandidate,
+  SearchHit,
   SpellCheckResult,
+  BackupRestoreResult,
+  WritingStats,
   Version,
   VersionMeta,
   Workspace
@@ -106,7 +109,8 @@ export interface AurenApi {
     purge(id: string): Promise<void>;
     emptyTrash(): Promise<number>;
     updateMeta(id: string, patch: Partial<Pick<DocumentMeta, 'favorite' | 'workspaceId' | 'folder' | 'pageSettings'>>): Promise<DocumentMeta>;
-    search(query: string): Promise<DocumentSummary[]>;
+    search(query: string): Promise<SearchHit[]>;
+    writingStats(days?: number): Promise<WritingStats>;
     versions(id: string): Promise<VersionMeta[]>;
     version(id: string, versionId: string): Promise<Version>;
     createVersion(id: string, label: string): Promise<VersionMeta>;
@@ -144,6 +148,7 @@ export interface AurenApi {
     testAI(provider: string, model: string, baseUrl: string, key?: string): Promise<{ ok: boolean; message: string }>;
     changeRoot(): Promise<{ changed: boolean; root: string; warnings: string[] }>;
     backup(): Promise<ExportResult>;
+    restoreBackup(): Promise<BackupRestoreResult>;
   };
   ai: {
     chat(payload: { requestId: string; messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>; includeDocument: boolean }): Promise<{ text: string }>;

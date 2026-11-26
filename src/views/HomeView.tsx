@@ -5,9 +5,12 @@ import {
   BookOpen,
   Clock3,
   FileText,
+  Flame,
   FolderOpen,
   LayoutTemplate,
   Plus,
+  Settings2,
+  Target,
   Sparkles,
   Star,
   Upload,
@@ -30,6 +33,8 @@ const ACTIVITY_LABEL: Record<ActivityEntry['type'], (detail: string) => string> 
 export function HomeView() {
   const t = useT();
   const language = useAppStore((state) => state.settings?.language ?? 'en');
+  const settings = useAppStore((state) => state.settings);
+  const writing = useAppStore((state) => state.writing);
   const recentDocs = useAppStore((state) => state.recentDocs);
   const stats = useAppStore((state) => state.stats);
   const activity = useAppStore((state) => state.activity);
@@ -48,6 +53,16 @@ export function HomeView() {
   }).format(new Date()), [language]);
 
   const templates = BUILTIN_TEMPLATES.filter((template) => ['builtin-report', 'builtin-essay', 'builtin-resume', 'builtin-meeting'].includes(template.id));
+
+  const dailyGoal = settings?.dailyWordGoal || 0;
+  const todayWords = writing?.todayWords || 0;
+  const goalProgress = dailyGoal > 0 ? Math.min(100, (todayWords / dailyGoal) * 100) : 0;
+  const writingDays = writing?.days || [];
+  const heatLevel = (words: number) => {
+    if (words <= 0) return 0;
+    const unit = dailyGoal > 0 ? Math.max(1, dailyGoal / 4) : 150;
+    return Math.min(4, Math.max(1, Math.ceil(words / unit)));
+  };
 
   return (
     <div className="view-scroll home-scroll">
@@ -81,7 +96,7 @@ export function HomeView() {
                 <span>{latest.wordCount.toLocaleString(language === 'fr' ? 'fr-FR' : 'en-US')} {t('common.words')}</span>
                 <span>{latest.readTimeMinutes} {t('common.minutes')}</span>
               </div>
-              <div className="continue-progress"><span style={{ width: `${Math.min(100, Math.max(6, (latest.wordCount % 2000) / 20))}%`, background: latest.color }} /></div>
+              {dailyGoal > 0 && <div className="continue-progress" title={t('view.home.goalProgress')}><span style={{ width: `${goalProgress}%`, background: 'var(--accent)' }} /></div>}
             </button>
           ) : (
             <div className="continue-card continue-empty">
@@ -119,6 +134,52 @@ export function HomeView() {
           <div className="stat-item"><span className="stat-icon"><Star size={15} /></span><div><strong>{stats?.favoriteCount ?? 0}</strong><span>{t('view.home.stats.favorites')}</span></div></div>
           <div className="stat-item"><span className="stat-icon"><Clock3 size={15} /></span><div><strong>{stats?.versionCount ?? 0}</strong><span>{t('view.home.stats.versions')}</span></div></div>
           <div className="stat-storage"><span>{formatBytes(stats?.bytes ?? 0)}</span><em>{t('view.home.storage')}</em></div>
+        </section>
+
+        <section className="writing-dashboard">
+          <div className="section-heading">
+            <div><h2>{t('view.home.writing')}</h2><p>{t('view.home.writingSubtitle')}</p></div>
+            <button className="btn-link" onClick={() => void navigate('settings')}>{t('view.home.setGoal')} <ArrowRight size={12} /></button>
+          </div>
+          <div className="writing-dashboard-grid">
+            <div className="writing-goal-card">
+              <div className="writing-goal-icon"><Target size={18} /></div>
+              <div className="writing-goal-main">
+                <span className="writing-kicker">{t('view.home.today')}</span>
+                <strong>
+                  {todayWords.toLocaleString(language === 'fr' ? 'fr-FR' : 'en-US')}
+                  {dailyGoal > 0 && <em> / {dailyGoal.toLocaleString(language === 'fr' ? 'fr-FR' : 'en-US')}</em>}
+                </strong>
+                <span className="writing-goal-caption">
+                  {dailyGoal > 0
+                    ? todayWords >= dailyGoal ? t('view.home.goalReached') : t('view.home.wordsToGoal', { count: Math.max(0, dailyGoal - todayWords) })
+                    : t('view.home.noGoal')}
+                </span>
+                <div className="writing-progress"><span style={{ width: `${goalProgress}%` }} /></div>
+                <div className="writing-goal-stats">
+                  <span><Flame size={12} /> {writing?.currentStreak || 0} {t('view.home.streak')}</span>
+                  <span>{t('view.home.allTime')} · {(writing?.totalWords || 0).toLocaleString(language === 'fr' ? 'fr-FR' : 'en-US')}</span>
+                </div>
+              </div>
+            </div>
+            <div className="writing-heatmap-card">
+              <div className="writing-heatmap-head">
+                <span>{t('view.home.heatmap')}</span>
+                <span className="writing-heatmap-legend">
+                  {[0, 1, 2, 3, 4].map((level) => <i key={level} data-level={level} />)}
+                </span>
+              </div>
+              <div className="writing-heatmap">
+                {Array.from({ length: Math.ceil(writingDays.length / 7) }, (_, week) => (
+                  <div className="writing-heatmap-week" key={week}>
+                    {writingDays.slice(week * 7, week * 7 + 7).map((day) => (
+                      <i key={day.day} data-level={heatLevel(day.words)} title={`${day.day} · ${day.words} ${t('common.words')}`} />
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </section>
 
         <div className="home-columns">

@@ -230,6 +230,7 @@ export function EditorView() {
         activity: Boolean(options?.activity)
       });
       markActiveMeta(saved.meta);
+      void useAppStore.getState().refreshWritingStats();
       setSaveState('saved', saved.savedAt);
       if (revisionRef.current === revision) {
         dirtyRef.current = false;
@@ -428,7 +429,7 @@ export function EditorView() {
       if (spellTimerRef.current) window.clearTimeout(spellTimerRef.current);
       editor.off('update', onUpdate);
     };
-  }, [editor, activeDoc?.meta.id, contentRevision, settings?.editorSpellcheck, settings?.spellLanguages?.join(',')]);
+  }, [editor, activeDoc?.meta.id, contentRevision, settings?.editorSpellcheck, settings?.spellLanguages?.join(','), settings?.customDictionary?.join('\n')]);
 
   const insertImageFile = useCallback(async (file: File, position?: number) => {
     const instance = editorRef.current;
@@ -1238,6 +1239,18 @@ export function EditorView() {
               }))
               : [{ label: t('common.none'), disabled: true }]),
             { separator: true } as MenuItem,
+            {
+              label: t('editor.addToDictionary'),
+              icon: <BookOpen size={13} />,
+              onClick: () => {
+                editorRef.current?.commands.ignoreSpellWord(spellMenu.word);
+                const current = settingsRef.current?.customDictionary || [];
+                const word = spellMenu.word.toLocaleLowerCase();
+                if (!current.includes(word)) {
+                  void useAppStore.getState().updateSettings({ customDictionary: [...current, word] });
+                }
+              }
+            },
             {
               label: t('editor.ignoreSpelling'),
               icon: <ExternalLink size={13} />,

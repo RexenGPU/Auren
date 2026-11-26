@@ -63,7 +63,7 @@ export interface VersionMeta {
   documentId: string;
   createdAt: number;
   label: string;
-  reason: 'manual' | 'auto' | 'restore' | 'import';
+  reason: 'manual' | 'auto' | 'snapshot' | 'restore' | 'import';
   wordCount: number;
 }
 
@@ -100,6 +100,7 @@ export interface AurenSettings {
   defaultPageSize: PageSizeName;
   editorSpellcheck: boolean;
   spellLanguages: string[];
+  customDictionary: string[];
   grammarHints: boolean;
   autosave: boolean;
   autosaveDelay: number;
@@ -122,6 +123,10 @@ export interface AurenSettings {
   dataRoot: string;
   lastBackupAt: number | null;
   localeFormat: 'system' | 'en' | 'fr';
+  autoVersions: boolean;
+  autoVersionInterval: number;
+  autoVersionWordDelta: number;
+  dailyWordGoal: number;
 }
 
 export type AppView =
@@ -147,6 +152,37 @@ export interface LibraryFilter {
 export interface SearchHit {
   document: DocumentSummary;
   snippet: string;
+}
+
+export interface WritingDay {
+  day: string;
+  words: number;
+}
+
+export interface WritingStats {
+  days: WritingDay[];
+  todayWords: number;
+  currentStreak: number;
+  bestStreak: number;
+  totalWords: number;
+}
+
+export interface BackupInspection {
+  path: string;
+  createdAt: number | null;
+  documents: number;
+  versions: number;
+  drafts: number;
+  templates: number;
+  encrypted: boolean;
+}
+
+export interface BackupRestoreResult {
+  canceled: boolean;
+  path?: string;
+  safetyPath?: string;
+  inspection?: BackupInspection;
+  warnings: string[];
 }
 
 export interface LibraryStats {

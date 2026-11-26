@@ -21,6 +21,7 @@ export const DEFAULT_SETTINGS: AurenSettings = {
   defaultPageSize: 'A4',
   editorSpellcheck: true,
   spellLanguages: ['en', 'fr'],
+  customDictionary: [],
   grammarHints: true,
   autosave: true,
   autosaveDelay: 1200,
@@ -42,7 +43,11 @@ export const DEFAULT_SETTINGS: AurenSettings = {
   encryptedStorage: false,
   dataRoot: '',
   lastBackupAt: null,
-  localeFormat: 'system'
+  localeFormat: 'system',
+  autoVersions: true,
+  autoVersionInterval: 30,
+  autoVersionWordDelta: 250,
+  dailyWordGoal: 500
 };
 
 function defaultDataRoot(): string {
@@ -65,7 +70,11 @@ export class SettingsStore {
   private load(): AurenSettings {
     try {
       const raw = JSON.parse(fs.readFileSync(this.file, 'utf8'));
-      return { ...DEFAULT_SETTINGS, ...raw, dataRoot: raw.dataRoot || defaultDataRoot() };
+      const loaded = { ...DEFAULT_SETTINGS, ...raw, dataRoot: raw.dataRoot || defaultDataRoot() };
+      loaded.customDictionary = Array.isArray(loaded.customDictionary)
+        ? loaded.customDictionary.map((word: unknown) => String(word).trim().toLocaleLowerCase()).filter(Boolean)
+        : [];
+      return loaded;
     } catch {
       return { ...DEFAULT_SETTINGS, dataRoot: defaultDataRoot() };
     }
@@ -80,6 +89,15 @@ export class SettingsStore {
     if (patch.theme && !['midnight', 'paper', 'oled'].includes(patch.theme)) {
       next.theme = this.settings.theme as ThemeId;
     }
+    if (patch.customDictionary) {
+      next.customDictionary = [...new Set(patch.customDictionary
+        .map((word) => String(word).trim().toLocaleLowerCase())
+        .filter((word) => word.length > 0 && word.length <= 80))]
+        .slice(0, 5000);
+    }
+    if (patch.autoVersionInterval !== undefined) next.autoVersionInterval = Math.max(1, Math.min(1440, Number(patch.autoVersionInterval) || 30));
+    if (patch.autoVersionWordDelta !== undefined) next.autoVersionWordDelta = Math.max(1, Math.min(100000, Number(patch.autoVersionWordDelta) || 250));
+    if (patch.dailyWordGoal !== undefined) next.dailyWordGoal = Math.max(0, Math.min(1000000, Number(patch.dailyWordGoal) || 0));
     this.settings = next;
     this.persist();
     return this.get();

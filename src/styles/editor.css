@@ -645,6 +645,14 @@
 .version-preview img { max-width: 100%; }
 .version-preview table { width: 100%; border-collapse: collapse; }
 .version-preview td, .version-preview th { border: 1px solid var(--page-border); padding: 5px 8px; }
+.version-diff-legend { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; font-size: 9.5px; color: var(--muted); }
+.version-diff-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.version-diff-legend i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.version-diff-legend i.is-added { background: color-mix(in srgb, var(--success) 38%, transparent); border: 1px solid var(--success); }
+.version-diff-legend i.is-removed { background: color-mix(in srgb, var(--danger) 34%, transparent); border: 1px solid var(--danger); }
+.version-diff { background: var(--page-bg); color: var(--page-text); border: 1px solid var(--page-border); border-radius: 7px; padding: 24px 28px; max-height: 56vh; overflow: auto; font-family: var(--font-read); font-size: 12pt; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+.version-diff .is-added { background: color-mix(in srgb, var(--success) 27%, transparent); border-radius: 2px; text-decoration: none; }
+.version-diff .is-removed { background: color-mix(in srgb, var(--danger) 24%, transparent); border-radius: 2px; text-decoration: line-through; text-decoration-color: var(--danger); }
 
 /* ai panel */
 .ai-panel { padding: 0; gap: 0; overflow: hidden; }

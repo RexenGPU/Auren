@@ -34,6 +34,7 @@ import {
   sanitizeHtmlBasic
 } from './formats/markup';
 import { exportPdf } from './formats/printing';
+import { extractBackup, inspectBackup } from './backup';
 
 interface IpcContext {
   getLibrary: () => Library;
@@ -57,8 +58,15 @@ function safeName(title: string): string {
 function extOf(file: string) { return path.extname(file).toLowerCase(); }
 
 function libraryOptions(settings: SettingsStore) {
-  const encrypted = settings.get().encryptedStorage;
-  return { encrypted, key: settings.libraryKey(encrypted) };
+  const current = settings.get();
+  const encrypted = current.encryptedStorage;
+  return {
+    encrypted,
+    key: settings.libraryKey(encrypted),
+    autoVersions: current.autoVersions,
+    autoVersionInterval: current.autoVersionInterval,
+    autoVersionWordDelta: current.autoVersionWordDelta
+  };
 }
 
 function defaultPdfOptions(): NonNullable<ExportOptions['pdf']> {
@@ -311,6 +319,7 @@ export function registerIpc(context: IpcContext) {
     return context.getLibrary().updateMeta(id, safePatch);
   });
   ipcMain.handle('library:search', (_e, query: string) => context.getLibrary().search(String(query || '')));
+  ipcMain.handle('library:writing-stats', (_e, days?: number) => context.getLibrary().writingStats(days));
   ipcMain.handle('library:versions', (_e, id: string) => context.getLibrary().listVersions(id));
   ipcMain.handle('library:version', (_e, id: string, versionId: string) => context.getLibrary().getVersion(id, versionId));
   ipcMain.handle('library:create-version', (_e, id: string, label: string) => context.getLibrary().createVersion(id, String(label || ''), 'manual'));
@@ -473,6 +482,7 @@ export function registerIpc(context: IpcContext) {
       delete (safe as Record<string, unknown>).encryptedStorage;
     }
     const next = settings.update(encryptionChanged ? { ...safe, encryptedStorage: wantsEncryption } : safe);
+    context.getLibrary().configureSnapshots(next.autoVersions, next.autoVersionInterval, next.autoVersionWordDelta);
     try {
       nativeTheme.themeSource = next.theme === 'paper' ? 'light' : 'dark';
     } catch { /* ignore */ }
@@ -567,6 +577,105 @@ export function registerIpc(context: IpcContext) {
     return { canceled: false, path: result.filePath, warnings: [] };
   });
 
+  ipcMain.handle('settings:restore-backup', async () => {
+    const win = context.getWindow();
+    const chosen = win
+      ? await dialog.showOpenDialog(win, {
+        title: 'Restore AUREN library backup',
+        properties: ['openFile'],
+        filters: [{ name: 'AUREN Backup', extensions: ['zip'] }]
+      })
+      : await dialog.showOpenDialog({
+        title: 'Restore AUREN library backup',
+        properties: ['openFile'],
+        filters: [{ name: 'AUREN Backup', extensions: ['zip'] }]
+      });
+    if (chosen.canceled || !chosen.filePaths[0]) return { canceled: true, warnings: [] };
+
+    const source = chosen.filePaths[0];
+    const inspection = await inspectBackup(source);
+    const created = inspection.createdAt ? new Date(inspection.createdAt).toLocaleString() : 'unknown date';
+    const detail = [
+      `Created: ${created}`,
+      `${inspection.documents} documents · ${inspection.versions} versions`,
+      `${inspection.drafts} drafts · ${inspection.templates} templates`,
+      inspection.encrypted ? 'The backup is encrypted.' : 'The backup is not encrypted.',
+      '',
+      'AUREN will save a safety copy of the current library before restoring.'
+    ].join('\n');
+    const answer = await dialog.showMessageBox(win || undefined as unknown as BrowserWindow, {
+      type: 'warning',
+      buttons: ['Restore backup', 'Cancel'],
+      defaultId: 1,
+      cancelId: 1,
+      title: 'Restore AUREN library backup',
+      message: 'Replace the current library with this backup?',
+      detail
+    });
+    if (answer.response !== 0) return { canceled: true, warnings: [] };
+
+    const root = context.getDataRoot();
+    const parent = path.dirname(root);
+    const stamp = Date.now();
+    const safetyPath = path.join(parent, `${path.basename(root)}-before-restore-${stamp}.zip`);
+    const staging = path.join(parent, `.auren-restore-${stamp}`);
+    const rollback = path.join(parent, `${path.basename(root)}-rollback-${stamp}`);
+    const previous = context.getLibrary();
+    let swapped = false;
+    try {
+      await previous.backup(safetyPath);
+      fs.mkdirSync(staging, { recursive: true });
+      const restoredInfo = await extractBackup(source, staging);
+      if (restoredInfo.encrypted && !settings.hasLibraryKey()) {
+        throw new Error('This backup is encrypted and its Windows key is not available on this profile.');
+      }
+      const key = settings.libraryKey(restoredInfo.encrypted);
+      if (restoredInfo.encrypted && !key) {
+        throw new Error('This backup is encrypted and its Windows key is not available on this profile.');
+      }
+      previous.close();
+      fs.renameSync(root, rollback);
+      swapped = true;
+      fs.renameSync(staging, root);
+      let restored: Library;
+      try {
+        restored = new Library(root, {
+          encrypted: restoredInfo.encrypted,
+          key,
+          autoVersions: settings.get().autoVersions,
+          autoVersionInterval: settings.get().autoVersionInterval,
+          autoVersionWordDelta: settings.get().autoVersionWordDelta
+        });
+      } catch (error) {
+        fs.rmSync(root, { recursive: true, force: true });
+        fs.renameSync(rollback, root);
+        swapped = false;
+        context.setLibrary(new Library(root, libraryOptions(settings)));
+        throw error;
+      }
+      settings.update({ encryptedStorage: restoredInfo.encrypted });
+      context.setLibrary(restored);
+      restored.addActivity(null, 'imported', `Library restored from ${path.basename(source)}`);
+      try { fs.rmSync(rollback, { recursive: true, force: true }); } catch { /* ignore */ }
+      return {
+        canceled: false,
+        path: source,
+        safetyPath,
+        inspection: restoredInfo,
+        warnings: [`Current library saved to ${safetyPath}.`]
+      };
+    } catch (error) {
+      try { fs.rmSync(staging, { recursive: true, force: true }); } catch { /* ignore */ }
+      if (swapped) {
+        try {
+          if (fs.existsSync(root)) fs.rmSync(root, { recursive: true, force: true });
+          fs.renameSync(rollback, root);
+        } catch { /* manual recovery still possible from rollback and safety copy */ }
+      }
+      throw error;
+    }
+  });
+
   /* ------------------------------------------------------------------ AI */
   ipcMain.handle('ai:chat', async (event, payload: { requestId: string; messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>; includeDocument: boolean }) => {
     if (!settings.get().aiEnabled) throw new Error('AI is disabled in Settings.');
@@ -581,7 +690,10 @@ export function registerIpc(context: IpcContext) {
   /* --------------------------------------------------------------- spell */
   ipcMain.handle('spell:check', (_e, words: string[], languages: string[]) => {
     const list = Array.isArray(words) ? words.slice(0, 6000).map(String) : [];
-    return { unknown: spell.check(list, Array.isArray(languages) ? languages : ['en']) };
+    const custom = new Set((settings.get().customDictionary || []).map((word) => word.toLocaleLowerCase()));
+    const unknown = spell.check(list, Array.isArray(languages) ? languages : ['en'])
+      .filter((word) => !custom.has(word.toLocaleLowerCase()));
+    return { unknown };
   });
   ipcMain.handle('spell:suggest', (_e, word: string, languages: string[]) => spell.suggest(String(word || ''), Array.isArray(languages) ? languages : ['en']));
 }

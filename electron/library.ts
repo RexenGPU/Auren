@@ -15,7 +15,10 @@ import type {
   Workspace,
   PageSettings,
   DraftInfo,
-  RecoveryCandidate
+  RecoveryCandidate,
+  SearchHit,
+  WritingDay,
+  WritingStats
 } from '../shared/types';
 import { DEFAULT_PAGE_SETTINGS, DOC_COLORS } from '../shared/types';
 
@@ -44,12 +47,25 @@ interface CreatePayload {
 interface LibraryOptions {
   key?: Buffer | null;
   encrypted?: boolean;
+  autoVersions?: boolean;
+  autoVersionInterval?: number;
+  autoVersionWordDelta?: number;
 }
 
 const ENCRYPTION_AAD = Buffer.from('Auren Library v1');
 
 function now() { return Date.now(); }
 function id() { return crypto.randomUUID(); }
+function dayKey(timestamp: number): string {
+  const date = new Date(timestamp);
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+function ftsQuery(input: string): string {
+  const terms = input.match(/[\p{L}\p{N}][\p{L}\p{N}'’\-]*/gu) || [];
+  return terms.slice(0, 16).map((term) => `"${term.replace(/"/g, '""')}"*`).join(' AND ');
+}
 function escapeLike(input: string): string {
   return input.replace(/[\\%_]/g, (m) => `\\${m}`);
 }
@@ -120,11 +136,18 @@ export class Library {
   private db: DatabaseSync;
   private encryptionKey: Buffer | null;
   private encrypted: boolean;
+  private autoVersions: boolean;
+  private autoVersionInterval: number;
+  private autoVersionWordDelta: number;
+  private ftsAvailable = false;
 
   constructor(root: string, options: LibraryOptions = {}) {
     this.root = root;
     this.encryptionKey = options.key && options.key.length === 32 ? Buffer.from(options.key) : null;
     this.encrypted = Boolean(options.encrypted);
+    this.autoVersions = options.autoVersions ?? true;
+    this.autoVersionInterval = Math.max(1, options.autoVersionInterval ?? 30);
+    this.autoVersionWordDelta = Math.max(1, options.autoVersionWordDelta ?? 250);
     if (this.encrypted && !this.encryptionKey) {
       throw new Error('The library is encrypted, but its key is unavailable.');
     }
@@ -136,11 +159,18 @@ export class Library {
     this.db = this.openDatabase();
     this.migrate();
     this.reconcile();
+    this.prepareSearchIndex();
     this.cleanupDrafts();
   }
 
   isEncrypted(): boolean {
     return this.encrypted;
+  }
+
+  configureSnapshots(enabled: boolean, intervalMinutes: number, wordDelta: number) {
+    this.autoVersions = enabled;
+    this.autoVersionInterval = Math.max(1, intervalMinutes);
+    this.autoVersionWordDelta = Math.max(1, wordDelta);
   }
 
   private decodeFile(raw: string): unknown {
@@ -311,7 +341,34 @@ export class Library {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS writing_stats (
+        day TEXT PRIMARY KEY,
+        words INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL
+      );
     `);
+    try {
+      this.db.exec("CREATE VIRTUAL TABLE IF NOT EXISTS documents_fts USING fts5(document_id UNINDEXED, title, content, tokenize = 'unicode61 remove_diacritics 2')");
+      this.ftsAvailable = true;
+    } catch {
+      // Older SQLite builds can lack FTS5. The LIKE path in list() remains available.
+      this.ftsAvailable = false;
+    }
+  }
+
+  private prepareSearchIndex() {
+    if (!this.ftsAvailable) return;
+    const row = this.db.prepare("SELECT value FROM meta WHERE key = 'fts_version'").get() as { value?: string } | undefined;
+    if (row?.value === '1') return;
+    try {
+      this.db.exec('DELETE FROM documents_fts');
+      const docs = this.db.prepare('SELECT id, title, search_text FROM documents').all() as Array<{ id: string; title: string; search_text: string }>;
+      const insert = this.db.prepare('INSERT INTO documents_fts (document_id, title, content) VALUES (?, ?, ?)');
+      for (const doc of docs) insert.run(doc.id, doc.title, doc.search_text || '');
+      this.db.prepare("INSERT INTO meta (key, value) VALUES ('fts_version', '1') ON CONFLICT(key) DO UPDATE SET value = excluded.value").run();
+    } catch {
+      this.ftsAvailable = false;
+    }
   }
 
   private reconcile() {
@@ -379,6 +436,15 @@ export class Library {
       meta.wordCount, meta.charCount, meta.excerpt, clampText(searchText, 120000),
       JSON.stringify(meta.pageSettings), meta.importedFrom, meta.color
     );
+    if (this.ftsAvailable) {
+      try {
+        this.db.prepare('DELETE FROM documents_fts WHERE document_id = ?').run(meta.id);
+        this.db.prepare('INSERT INTO documents_fts (document_id, title, content) VALUES (?, ?, ?)')
+          .run(meta.id, meta.title, clampText(searchText, 120000));
+      } catch {
+        this.ftsAvailable = false;
+      }
+    }
   }
 
   private rowToMeta(row: Record<string, unknown>): DocumentMeta {
@@ -405,22 +471,28 @@ export class Library {
     const clauses: string[] = [];
     const params: Array<string | number> = [];
     const view = filter.view || 'documents';
-    if (view === 'trash') clauses.push('trashed_at IS NOT NULL');
-    else clauses.push('trashed_at IS NULL');
-    if (view === 'favorites') clauses.push('favorite = 1');
-    if (filter.workspaceId) { clauses.push('workspace_id = ?'); params.push(filter.workspaceId); }
-    if (filter.folder) { clauses.push('folder = ?'); params.push(filter.folder); }
-    if (filter.search?.trim()) {
-      clauses.push("(title LIKE ? ESCAPE '\\' OR search_text LIKE ? ESCAPE '\\')");
-      const like = `%${escapeLike(filter.search.trim())}%`;
+    const search = filter.search?.trim() || '';
+    const useFts = Boolean(search && this.ftsAvailable && ftsQuery(search));
+    if (view === 'trash') clauses.push('documents.trashed_at IS NOT NULL');
+    else clauses.push('documents.trashed_at IS NULL');
+    if (view === 'favorites') clauses.push('documents.favorite = 1');
+    if (filter.workspaceId) { clauses.push('documents.workspace_id = ?'); params.push(filter.workspaceId); }
+    if (filter.folder) { clauses.push('documents.folder = ?'); params.push(filter.folder); }
+    if (useFts) {
+      clauses.push('documents_fts MATCH ?');
+      params.push(ftsQuery(search));
+    } else if (search) {
+      clauses.push("(documents.title LIKE ? ESCAPE '\\' OR documents.search_text LIKE ? ESCAPE '\\')");
+      const like = `%${escapeLike(search)}%`;
       params.push(like, like);
     }
     const sortMap: Record<string, string> = {
-      updated: 'updated_at', created: 'created_at', title: 'title COLLATE NOCASE', opened: 'opened_at'
+      updated: 'documents.updated_at', created: 'documents.created_at', title: 'documents.title COLLATE NOCASE', opened: 'documents.opened_at'
     };
-    const sort = sortMap[filter.sort || (view === 'recent' ? 'opened' : 'updated')] || 'updated_at';
+    const sort = sortMap[filter.sort || (view === 'recent' ? 'opened' : 'updated')] || 'documents.updated_at';
     const dir = filter.direction === 'asc' ? 'ASC' : 'DESC';
-    const sql = `SELECT * FROM documents WHERE ${clauses.join(' AND ')} ORDER BY ${sort} ${dir}`;
+    const from = useFts ? 'documents JOIN documents_fts ON documents_fts.document_id = documents.id' : 'documents';
+    const sql = `SELECT documents.* FROM ${from} WHERE ${clauses.join(' AND ')} ORDER BY ${sort} ${dir}`;
     const rows = this.db.prepare(sql).all(...params) as Array<Record<string, unknown>>;
     return rows.map((row) => toSummary(this.rowToMeta(row)));
   }
@@ -473,6 +545,7 @@ export class Library {
   save(documentId: string, payload: SavePayload): AurenDocument {
     const current = this.get(documentId, false);
     const stamp = now();
+    this.maybeCreateSnapshot(documentId, current, payload, stamp);
     const meta: DocumentMeta = {
       ...current.meta,
       title: payload.title?.trim() || current.meta.title,
@@ -490,6 +563,7 @@ export class Library {
     };
     this.writeJson(this.docPath(documentId), doc);
     this.upsertMeta(meta, payload.searchText || plainFromHtml(payload.html));
+    this.recordWritingDelta(current.meta.wordCount, payload.wordCount, stamp);
     if (payload.activity) this.addActivity(documentId, 'saved', meta.title);
     try { fs.rmSync(this.draftPath(documentId), { force: true }); } catch { /* ignore */ }
     return doc;
@@ -543,6 +617,9 @@ export class Library {
     try { fs.rmSync(this.draftPath(documentId), { force: true }); } catch { /* ignore */ }
     this.db.prepare('DELETE FROM versions WHERE document_id = ?').run(documentId);
     this.db.prepare('DELETE FROM documents WHERE id = ?').run(documentId);
+    if (this.ftsAvailable) {
+      try { this.db.prepare('DELETE FROM documents_fts WHERE document_id = ?').run(documentId); } catch { /* ignore */ }
+    }
     this.db.prepare('DELETE FROM activity WHERE document_id = ?').run(documentId);
   }
 
@@ -675,9 +752,93 @@ export class Library {
     }
   }
 
-  search(query: string): DocumentSummary[] {
-    if (!query.trim()) return this.list({ view: 'documents' });
-    return this.list({ view: 'documents', search: query });
+  search(query: string): SearchHit[] {
+    const base = this.list({ view: 'documents', search: query });
+    if (!query.trim() || !this.ftsAvailable) {
+      return base.map((document) => ({ document, snippet: document.excerpt }));
+    }
+    const match = ftsQuery(query);
+    if (!match) return base.map((document) => ({ document, snippet: document.excerpt }));
+    try {
+      const rows = this.db.prepare(`
+        SELECT document_id, snippet(documents_fts, 2, '', '', ' … ', 22) AS snippet
+        FROM documents_fts
+        WHERE documents_fts MATCH ?
+        ORDER BY rank
+        LIMIT 200
+      `).all(match) as Array<{ document_id: string; snippet?: string }>;
+      const snippets = new Map(rows.map((row) => [row.document_id, String(row.snippet || '').trim()]));
+      return base.map((document) => ({
+        document,
+        snippet: snippets.get(document.id) || document.excerpt
+      }));
+    } catch {
+      return base.map((document) => ({ document, snippet: document.excerpt }));
+    }
+  }
+
+  writingStats(days = 84): WritingStats {
+    const count = Math.max(1, Math.min(366, Number(days) || 84));
+    const today = now();
+    const start = new Date(today);
+    start.setHours(12, 0, 0, 0);
+    const rows = this.db.prepare('SELECT day, words FROM writing_stats ORDER BY day').all() as Array<{ day: string; words: number }>;
+    const byDay = new Map(rows.map((row) => [row.day, Number(row.words) || 0]));
+    const todayKey = dayKey(today);
+    const result: WritingDay[] = [];
+    for (let offset = count - 1; offset >= 0; offset -= 1) {
+      const date = new Date(start);
+      date.setDate(date.getDate() - offset);
+      const key = dayKey(date.getTime());
+      result.push({ day: key, words: byDay.get(key) || 0 });
+    }
+    let currentStreak = 0;
+    const cursor = new Date(start);
+    if (!(byDay.get(todayKey) || 0)) cursor.setDate(cursor.getDate() - 1);
+    for (;;) {
+      const words = byDay.get(dayKey(cursor.getTime())) || 0;
+      if (words <= 0) break;
+      currentStreak += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    let run = 0;
+    let bestStreak = 0;
+    for (const row of rows) {
+      run = row.words > 0 ? run + 1 : 0;
+      bestStreak = Math.max(bestStreak, run);
+    }
+    const total = this.db.prepare('SELECT COALESCE(SUM(words), 0) AS total FROM writing_stats').get() as { total: number };
+    return {
+      days: result,
+      todayWords: byDay.get(todayKey) || 0,
+      currentStreak,
+      bestStreak: Math.max(bestStreak, currentStreak),
+      totalWords: Number(total.total) || 0
+    };
+  }
+
+  private recordWritingDelta(before: number, after: number, timestamp: number) {
+    const delta = Math.max(0, Math.round(after) - Math.round(before));
+    if (!delta) return;
+    this.db.prepare(`
+      INSERT INTO writing_stats (day, words, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(day) DO UPDATE SET words = words + excluded.words, updated_at = excluded.updated_at
+    `).run(dayKey(timestamp), delta, timestamp);
+  }
+
+  private maybeCreateSnapshot(documentId: string, current: AurenDocument, payload: SavePayload, stamp: number) {
+    if (!this.autoVersions || current.html === payload.html) return;
+    if (!plainFromHtml(current.html).trim()) return;
+    const latest = this.db.prepare(`
+      SELECT created_at, word_count FROM versions WHERE document_id = ?
+      ORDER BY created_at DESC LIMIT 1
+    `).get(documentId) as { created_at: number; word_count: number } | undefined;
+    const referenceTime = latest?.created_at || current.meta.createdAt;
+    const referenceWords = latest?.word_count || 0;
+    const timeDue = stamp - referenceTime >= this.autoVersionInterval * 60_000;
+    const wordsDue = Math.abs(Number(payload.wordCount) - referenceWords) >= this.autoVersionWordDelta;
+    if (!timeDue && !wordsDue) return;
+    this.createVersion(documentId, `Automatic snapshot · ${new Date(stamp).toLocaleString()}`, 'snapshot');
   }
 
   workspaces(): Workspace[] {
@@ -780,7 +941,7 @@ export class Library {
     addDir('drafts', 'drafts/');
     addDir('templates', 'templates/');
     try { zip.file('library.db', fs.readFileSync(path.join(this.root, 'library.db'))); } catch { /* ignore */ }
-    zip.file('AUREN-BACKUP.json', JSON.stringify({ app: 'Auren', version: 1, createdAt: now() }, null, 2));
+    zip.file('AUREN-BACKUP.json', JSON.stringify({ app: 'Auren', version: 1, createdAt: now(), encrypted: this.encrypted }, null, 2));
     const buffer = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
     this.writeAtomic(destination, buffer);
   }

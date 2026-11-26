@@ -1,5 +1,7 @@
 // Ambient declarations for small CommonJS packages that do not ship types.
 
+declare module 'lucide-react';
+
 declare module '*.png' {
   const source: string;
   export default source;

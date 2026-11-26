@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Clock3, History, RotateCcw, Save, Eye, Activity, FileClock } from 'lucide-react';
+import { diffWordsWithSpace, type Change } from 'diff';
+import { Activity, ArrowLeftRight, Clock3, Eye, FileClock, History, RotateCcw, Save } from 'lucide-react';
 import type { AurenDocument, VersionMeta } from '../../shared/types';
 import { useAppStore } from '../store/app';
-import { useT, formatDate, timeAgo } from '../lib/utils';
+import { useT, formatDate, timeAgo, plainText } from '../lib/utils';
 import { ConfirmDialog, Modal, PromptDialog } from '../components/ui';
 
 export function TimelinePanel({ doc, onRestored }: { doc: AurenDocument; onRestored: () => void }) {
@@ -17,6 +18,7 @@ export function TimelinePanel({ doc, onRestored }: { doc: AurenDocument; onResto
   const [labelOpen, setLabelOpen] = useState(false);
   const [restoreTarget, setRestoreTarget] = useState<VersionMeta | null>(null);
   const [preview, setPreview] = useState<{ meta: VersionMeta; html: string } | null>(null);
+  const [diff, setDiff] = useState<{ meta: VersionMeta; changes: Change[] } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -57,6 +59,20 @@ export function TimelinePanel({ doc, onRestored }: { doc: AurenDocument; onResto
     }
   };
 
+  const showDiff = async (meta: VersionMeta) => {
+    try {
+      const bridge = useAppStore.getState().editorBridge;
+      await bridge?.flush();
+      const version = await window.auren.library.version(doc.meta.id, meta.id);
+      const currentText = bridge?.getDocumentText() || plainText(doc.html);
+      const before = plainText(version.html);
+      const changes = diffWordsWithSpace(before, currentText);
+      setDiff({ meta, changes });
+    } catch (error) {
+      toast(error instanceof Error ? error.message : String(error), 'error');
+    }
+  };
+
   const docActivity = activity.filter((entry) => entry.documentId === doc.meta.id).slice(0, 12);
 
   return (
@@ -89,9 +105,10 @@ export function TimelinePanel({ doc, onRestored }: { doc: AurenDocument; onResto
                   <div className="version-meta">
                     <span>{version.wordCount.toLocaleString()} {t('common.words')}</span>
                     <span>·</span>
-                    <span>{version.reason === 'manual' ? t('editor.saveVersion') : version.reason === 'restore' ? t('editor.restored') : version.reason === 'import' ? t('nav.import') : t('settings.autosave')}</span>
+                    <span>{version.reason === 'manual' ? t('editor.saveVersion') : version.reason === 'snapshot' ? t('editor.autoSnapshot') : version.reason === 'restore' ? t('editor.restored') : version.reason === 'import' ? t('nav.import') : t('settings.autosave')}</span>
                   </div>
                   <div className="version-actions">
+                    <button className="btn-link" onClick={() => void showDiff(version)}><ArrowLeftRight size={11} /> {t('editor.compareVersion')}</button>
                     <button className="btn-link" onClick={() => void showPreview(version)}><Eye size={11} /> {t('editor.preview')}</button>
                     <button className="btn-link" onClick={() => setRestoreTarget(version)}><RotateCcw size={11} /> {t('editor.restoreTitle').replace('?', '')}</button>
                   </div>
@@ -154,6 +171,31 @@ export function TimelinePanel({ doc, onRestored }: { doc: AurenDocument; onResto
         )}
       >
         <div className="version-preview" dangerouslySetInnerHTML={{ __html: preview?.html || '' }} />
+      </Modal>
+
+      <Modal
+        open={Boolean(diff)}
+        title={diff?.meta.label || t('editor.compareVersion')}
+        description={diff ? t('editor.compareVersionHint') : undefined}
+        onClose={() => setDiff(null)}
+        width={860}
+        footer={(
+          <>
+            <button className="btn btn-ghost" data-secondary onClick={() => setDiff(null)}>{t('common.close')}</button>
+            <button className="btn btn-primary" onClick={() => { if (diff) setRestoreTarget(diff.meta); setDiff(null); }}><RotateCcw size={13} /> {t('editor.restoreTitle').replace('?', '')}</button>
+          </>
+        )}
+      >
+        <div className="version-diff-legend">
+          <span><i className="is-added" /> {t('editor.diffAdded')}</span>
+          <span><i className="is-removed" /> {t('editor.diffRemoved')}</span>
+        </div>
+        <div className="version-diff">{(diff?.changes || []).map((change, index) => (
+          <span
+            key={`${index}-${change.value.slice(0, 12)}`}
+            className={change.added ? 'is-added' : change.removed ? 'is-removed' : undefined}
+          >{change.value}</span>
+        ))}</div>
       </Modal>
     </div>
   );

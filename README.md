@@ -43,19 +43,20 @@ AUREN has no account, no cloud, no telemetry, and no automatic uploads. The appl
 - Bullet lists, numbered lists, task lists, blockquotes, callouts, and horizontal rules.
 - Links, images (drag, paste, or insert; resizable), tables (resizable, with header rows), page breaks, footnotes, captions, shapes, text boxes, equations, and a generated table of contents.
 - Find and replace with match highlighting and keyboard navigation.
-- Local spellcheck with bundled English and French Hunspell dictionaries, plus optional writing hints.
+- Local spellcheck with bundled English and French Hunspell dictionaries, a persistent custom dictionary, plus optional writing hints.
 - Real page geometry: A4, A3, US Letter, US Legal, and custom sizes; portrait or landscape; four independent margins; one, two, or three columns.
 - Headers and footers with `{{page}}`, `{{total}}` (or `{{pages}}`), and `{{title}}` tokens. Page numbering is optional.
 - Pagination on a measured page surface, with page guides and a page deck. PDF export is the authoritative print layout.
 
 ### A private library
 
-- Create, rename, duplicate, delete, restore, favorite, search, sort, and filter documents.
+- Create, rename, duplicate, delete, restore, favorite, search, sort, and filter documents. Full-text search uses SQLite FTS5 with accent-insensitive matching and contextual snippets.
 - Folders, color labels, workspaces, document previews, word counts, reading time, and library statistics.
-- Autosave, crash-recovery drafts, and version history: manual labeled versions plus an automatic “Before restore” snapshot whenever you restore an earlier version.
+- Autosave, crash-recovery drafts, and version history: manual labeled versions, configurable automatic snapshots, and an automatic “Before restore” snapshot whenever you restore an earlier version. Any version can be compared word by word with the current document.
+- Daily word goals, streaks, and a 12-week writing heatmap on the Home screen. Words added are recorded locally as you save.
 - Built-in templates: project report, research paper, personal essay, cover letter, résumé, business proposal, meeting notes, case study, press release, daily journal, weekly planner, and book manuscript.
 - Import and export DOCX, DOC, ODT, RTF, TXT, Markdown, HTML, PDF, and the lossless AUREN format.
-- Backups as plain ZIP archives.
+- Backups as plain ZIP archives, with in-app restore. A safety backup of the current library is written before every restore.
 
 ### A calm interface
 
@@ -68,6 +69,8 @@ AUREN has no account, no cloud, no telemetry, and no automatic uploads. The appl
 ---
 
 ## Install
+
+The latest Windows builds are published on GitHub in the [Releases](https://github.com/RexenGPU/Auren/releases/latest) tab.
 
 ### Installer (recommended)
 
@@ -197,13 +200,13 @@ A draft is not a substitute for a saved version. Use **Ctrl+S** to save and **Ct
 
 ### Version history
 
-Versions are stored per document. You create versions manually with a label (**Ctrl+Shift+S**). The timeline panel shows activity and versions, and you can restore a previous version. Before a restore, AUREN records an automatic “Before restore” version, so the restore itself is reversible.
+Versions are stored per document. You create versions manually with a label (**Ctrl+Shift+S**), and AUREN can create automatic snapshots before larger changes are saved. In **Settings → Documents**, choose the snapshot time interval and word-count threshold, or disable automatic snapshots entirely. The timeline panel shows activity and versions; **Compare with current** opens a word-level diff, and you can restore a previous version. Before a restore, AUREN records an automatic “Before restore” version, so the restore itself is reversible.
 
 ### Backups
 
 **Settings → Storage → Create backup** writes a ZIP archive containing documents, versions, drafts, templates, the SQLite index, and a small manifest. Store it anywhere. Backups are plain files; if library encryption is enabled, the document payloads inside the backup remain encrypted.
 
-To restore a backup manually, close AUREN, extract the ZIP into a folder, and point **Settings → Storage → Change location** at that folder (or replace the contents of the current library folder while AUREN is closed). This manual restore path is documented but was not exercised as an automated test.
+To restore a backup, open **Settings → Storage → Restore backup**, choose the ZIP, and review the preview. AUREN writes a safety backup of the current library, extracts the archive into a staging folder, validates its manifest and paths, then swaps it in with rollback on failure. Manual restore remains possible: close AUREN, extract the ZIP into a folder, and point **Settings → Storage → Change location** at that folder (or replace the contents of the current library folder while AUREN is closed).
 
 ---
 
@@ -347,7 +350,7 @@ Exported files (DOCX, PDF, ODT, RTF, HTML, Markdown, TXT, AUREN) are ordinary fi
 - Each file uses a random initialization vector and an authentication tag.
 - The 256-bit library key is random and is stored in `secrets.bin` protected by Windows DPAPI (`safeStorage`).
 - The key is not a user passphrase. It is tied to the Windows account/profile that created it.
-- The local SQLite search index keeps document titles and excerpts unencrypted so search and sorting remain fast. The full document content is encrypted.
+- The local SQLite index and its full-text mirror keep document titles and searchable text unencrypted so search and sorting remain fast. Document content files are encrypted.
 - Turning encryption off decrypts the content files back to plain JSON.
 - If the Windows profile, DPAPI keys, or `secrets.bin` are lost, encrypted documents **cannot be recovered**. Keep a backup of the library and, if possible, an unencrypted export of critical work.
 - Encryption protects data at rest on disk. It does not protect a document while AUREN is open, and it does not encrypt files you export.
@@ -360,9 +363,9 @@ Encryption is optional and off by default.
 
 - **Appearance** — Midnight / Paper / OLED, interface scale (90–115%), reduced motion, theme previews.
 - **Editor** — default font, default size, toolbar density, page guides, autosave and delay, word count, reading time.
-- **Writing** — local spellcheck, English/French dictionaries, writing hints.
-- **Documents** — default page size, default export format, library defaults.
-- **Storage** — library path, change location, ZIP backup, library size, encryption at rest.
+- **Writing** — local spellcheck, English/French dictionaries, persistent custom dictionary, writing hints.
+- **Documents** — default page size, default export format, daily word goal, automatic version snapshots, library defaults.
+- **Storage** — library path, change location, ZIP backup, in-app backup restore, library size, encryption at rest.
 - **Privacy** — privacy summary, external-service status, welcome-screen reset.
 - **AI** — provider, model, base URL, API key, connection test, system prompt, consent memory.
 - **Shortcuts** — reference table.
@@ -431,7 +434,7 @@ This runs, in order:
 
 1. `npm run typecheck`
 2. `npm run build`
-3. `scripts/e2e.mjs` — backend and UI integration: rich document creation, DOCX/PDF/ODT/RTF/Markdown/HTML/TXT/AUREN export, import previews and re-import, library management, versions, drafts, workspaces, templates, statistics, spellcheck, AI error handling, settings, shortcuts.
+3. `scripts/e2e.mjs` — backend and UI integration: rich document creation, DOCX/PDF/ODT/RTF/Markdown/HTML/TXT/AUREN export, import previews and re-import, library management, accent-insensitive FTS search with snippets, automatic snapshots, writing statistics, backup creation and in-app restore with safety copy, versions, drafts, workspaces, templates, statistics, custom dictionary, spellcheck, AI error handling, settings, shortcuts.
 4. `scripts/editor-ui.mjs` — rich editor interaction: spellcheck context menu, image, page break, footnote, TOC, text box, shape, caption, table, find/replace, focus/zen, page setup and columns, save, pagination, narrow layout, settings scale, themes, encryption.
 5. `scripts/encryption-test.mjs` — AES-256-GCM round trip, plaintext absence on disk, disabled-encryption readability.
 
@@ -461,8 +464,8 @@ Visual QA screenshots live in `qa-shots/`. PDF rendering checks can be reproduce
 The delivered build was verified on Windows 11 x64 with the following results:
 
 - **TypeScript:** `npx tsc --noEmit` passes.
-- **End-to-end suite:** passes. The stress document exported to DOCX, PDF (11 A4 pages), ODT, RTF, Markdown, HTML, TXT, and AUREN; every export was previewed and re-imported. PDF page ranges, headers, footers, page numbers, library management, versions, drafts, workspaces, templates, statistics, spellcheck, AI error paths, settings, and shortcuts were exercised.
-- **Editor UI suite:** passes. Spellcheck context menu, image insertion, page break, footnote, TOC, text box, shape, caption, table, find/replace, focus/zen, page setup and columns, save, pagination, 1000 px narrow layout, settings UI scale, all three themes, and encryption UI were exercised.
+- **End-to-end suite:** passes. The stress document exported to DOCX, PDF (11 A4 pages), ODT, RTF, Markdown, HTML, TXT, and AUREN; every export was previewed and re-imported. PDF page ranges, headers, footers, page numbers, library management, accent-insensitive full-text search with snippets, automatic snapshots, writing statistics, backup creation and in-app restore with a safety copy, versions, drafts, workspaces, templates, custom dictionary, spellcheck, AI error paths, settings, and shortcuts were exercised.
+- **Editor UI suite:** passes. Spellcheck context menu and persistent custom dictionary, image insertion, page break, footnote, TOC, text box, shape, caption, table, find/replace, focus/zen, page setup and columns, save, version comparison diff, pagination, 1000 px narrow layout, settings UI scale, all three themes, and encryption UI were exercised.
 - **Encryption suite:** passes. Documents, drafts, versions, and templates round-trip through AES-256-GCM; ciphertext is present on disk when enabled; files remain readable when encryption is disabled again.
 - **Packaged smoke test:** passes for both `release\win-unpacked\Auren.exe` and the silently installed copy. Startup, app info, local spellcheck, UI save, DOCX and PDF export/import, themes, settings persistence, and encryption were exercised.
 - **Portable smoke test:** passes. The portable `release\Auren.exe` launches, serves the home screen, saves a document, spellchecks, and persists themes.
@@ -484,12 +487,12 @@ These are deliberate scope boundaries or honest fidelity limits, not hidden fail
 6. **PDF and DOC imports are text-first.** PDF import extracts text and page breaks only. Legacy `.doc` import uses text extraction; formatting, images, and tables are not preserved.
 7. **Editor pagination is a measured approximation.** It is designed for a faithful writing experience, but PDF export is the authoritative layout. Very complex floats, nested tables, or unusual fonts may paginate differently in Word or a browser.
 8. **Spellcheck is English and French only.** The dictionaries are bundled; there is no downloadable dictionary store.
-9. **Encryption is not passphrase-based.** It uses a random key protected by Windows DPAPI. A lost Windows profile or `secrets.bin` means encrypted documents cannot be recovered. Titles and excerpts remain in the local SQLite index.
+9. **Encryption is not passphrase-based.** It uses a random key protected by Windows DPAPI. A lost Windows profile or `secrets.bin` means encrypted documents cannot be recovered. Searchable text remains in the local SQLite index so search works without decrypting every document.
 10. **No collaboration, comments, or tracked changes.** AUREN is a single-user local editor.
 11. **No automatic updates.** Updates are manual by design; AUREN does not contact an update server.
 12. **AI live generation was not tested with real provider keys.** Error paths, consent, key storage, and disabled-by-default behaviour were tested. Use the connection test with your own key.
 13. **Large-document stress testing is limited.** The automated stress document is roughly 3,700 words as counted by Word and 11 A4 pages in AUREN’s PDF. Multi-hundred-page manuscripts were not benchmarked.
-14. **Backup restore is a documented manual procedure.** Backup creation is tested; automated restore is not.
+14. **FTS5 is used when available.** SQLite builds without FTS5 fall back to substring search, which is slower and does not strip accents or return snippets.
 15. **No native print dialog.** Use PDF export for printing.
 16. **Remote images are intentionally not downloaded.** Importing HTML or DOCX with remote image references leaves them as references and reports a warning.
 

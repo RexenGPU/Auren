@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store/app';
 import { timeAgo, useT } from '../lib/utils';
+import { BrandMark } from './TitleBar';
 import type { DocumentSummary } from '../../shared/types';
 import { Kbd } from './ui';
 
@@ -47,6 +48,7 @@ export function CommandPalette() {
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
   const [contentDocs, setContentDocs] = useState<DocumentSummary[]>([]);
+  const [contentSnippets, setContentSnippets] = useState<Record<string, string>>({});
   const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -56,6 +58,7 @@ export function CommandPalette() {
     setQuery('');
     setSelected(0);
     setContentDocs([]);
+    setContentSnippets({});
     const timer = window.setTimeout(() => inputRef.current?.focus(), 30);
     return () => window.clearTimeout(timer);
   }, [open]);
@@ -63,12 +66,14 @@ export function CommandPalette() {
   useEffect(() => {
     if (!open || query.trim().length < 2) {
       setContentDocs([]);
+      setContentSnippets({});
       return;
     }
     setSearching(true);
     const timer = window.setTimeout(() => {
       void window.auren.library.search(query.trim()).then((results) => {
-        setContentDocs(results.slice(0, 6));
+        setContentDocs(results.slice(0, 6).map((hit) => hit.document));
+        setContentSnippets(Object.fromEntries(results.slice(0, 6).map((hit) => [hit.document.id, hit.snippet])));
         setSearching(false);
       }).catch(() => setSearching(false));
     }, 160);
@@ -216,16 +221,20 @@ export function CommandPalette() {
               {[...documentResults, ...localDocs].map((doc) => {
                 index++;
                 const isSelected = index === selected;
+                const snippet = contentSnippets[doc.id];
                 return (
                   <button
                     key={doc.id}
                     data-index={index}
-                    className={`palette-item ${isSelected ? 'is-selected' : ''}`}
+                    className={`palette-item ${snippet ? 'has-snippet' : ''} ${isSelected ? 'is-selected' : ''}`}
                     onMouseEnter={() => setSelected(index)}
                     onClick={() => { setFlag('paletteOpen', false); void store.getState().openDocument(doc.id); }}
                   >
                     <span className="palette-icon"><span className="doc-dot" style={{ background: doc.color }} /></span>
-                    <span className="palette-label">{doc.title || t('common.untitled')}</span>
+                    <span className="palette-doc-text">
+                      <span className="palette-label">{doc.title || t('common.untitled')}</span>
+                      {snippet && <span className="palette-snippet">{snippet}</span>}
+                    </span>
                     <span className="palette-meta">{timeAgo(doc.updatedAt, store.getState().settings?.language || 'en')}</span>
                   </button>
                 );
@@ -237,7 +246,7 @@ export function CommandPalette() {
         <div className="palette-footer">
           <span><Kbd>↑</Kbd><Kbd>↓</Kbd> navigate</span>
           <span><Kbd>↵</Kbd> open</span>
-          <span className="palette-footer-brand"><span className="brand-mark" style={{ width: 12, height: 12 }}>◆</span> AUREN</span>
+          <span className="palette-footer-brand"><span className="brand-mark" style={{ width: 12, height: 12 }}><BrandMark size={12} /></span> AUREN</span>
         </div>
       </div>
     </div>,

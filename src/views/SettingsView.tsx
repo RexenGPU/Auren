@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import {
   ArrowRight,
+  BookOpen,
   Check,
   ChevronRight,
   CloudOff,
@@ -8,6 +9,7 @@ import {
   Database,
   Download,
   HardDrive,
+  History,
   Info,
   KeyRound,
   Languages,
@@ -16,6 +18,7 @@ import {
   Monitor,
   MoonStar,
   Palette,
+  Plus,
   RotateCcw,
   ShieldCheck,
   Sparkles,
@@ -27,6 +30,7 @@ import {
 } from 'lucide-react';
 import { useAppStore } from '../store/app';
 import { formatBytes, formatDate, useT } from '../lib/utils';
+import { BrandMark } from '../components/TitleBar';
 import { Kbd, Spinner, Toggle } from '../components/ui';
 import type { AurenSettings, ThemeId } from '../../shared/types';
 
@@ -55,12 +59,15 @@ export function SettingsView() {
   const toast = useAppStore((state) => state.toast);
   const stats = useAppStore((state) => state.stats);
   const refreshLibrary = useAppStore((state) => state.refreshLibrary);
+  const loadDashboard = useAppStore((state) => state.loadDashboard);
   const [section, setSection] = useState<SettingsSection>('appearance');
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [changingRoot, setChangingRoot] = useState(false);
   const [backingUp, setBackingUp] = useState(false);
+  const [restoring, setRestoring] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const [dictionaryInput, setDictionaryInput] = useState('');
 
   useEffect(() => {
     if (!savedAt) return;
@@ -112,6 +119,33 @@ export function SettingsView() {
     } finally {
       setBackingUp(false);
     }
+  };
+
+  const restoreBackup = async () => {
+    setRestoring(true);
+    try {
+      const result = await window.auren.settings.restoreBackup();
+      if (result.canceled) return;
+      const info = await window.auren.app.info();
+      useAppStore.setState({ appInfo: info });
+      await Promise.all([refreshLibrary(), loadDashboard()]);
+      toast(t('settings.restored'), 'success');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : String(error), 'error');
+    } finally {
+      setRestoring(false);
+    }
+  };
+
+  const addDictionaryWord = async () => {
+    const word = dictionaryInput.trim().toLocaleLowerCase();
+    if (!word || settings.customDictionary.includes(word)) return;
+    await save({ customDictionary: [...settings.customDictionary, word] });
+    setDictionaryInput('');
+  };
+
+  const removeDictionaryWord = async (word: string) => {
+    await save({ customDictionary: settings.customDictionary.filter((item) => item !== word) });
   };
 
   const installUpdate = async () => {
@@ -279,6 +313,28 @@ export function SettingsView() {
                   <SettingRow title={t('settings.grammar')} hint={t('settings.grammarHint')}>
                     <Toggle checked={settings.grammarHints} onChange={(value) => void save({ grammarHints: value })} label={t('settings.grammar')} />
                   </SettingRow>
+                  <SettingRow title={t('settings.customDictionary')} hint={t('settings.customDictionaryHint')}>
+                    <div className="dictionary-editor">
+                      <div className="dictionary-words">
+                        {settings.customDictionary.length === 0 && <span className="setting-value">{t('settings.customDictionaryEmpty')}</span>}
+                        {settings.customDictionary.map((word) => (
+                          <button key={word} className="dictionary-word" onClick={() => void removeDictionaryWord(word)} title={t('common.remove')}>
+                            <BookOpen size={10} /> {word} <span>×</span>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="dictionary-add">
+                        <input
+                          className="input compact"
+                          value={dictionaryInput}
+                          onChange={(event) => setDictionaryInput(event.target.value)}
+                          onKeyDown={(event) => { if (event.key === 'Enter') void addDictionaryWord(); }}
+                          placeholder={t('settings.addWord')}
+                        />
+                        <button className="btn btn-soft btn-sm" disabled={!dictionaryInput.trim()} onClick={() => void addDictionaryWord()}><Plus size={12} /></button>
+                      </div>
+                    </div>
+                  </SettingRow>
                 </div>
                 <div className="info-card">
                   <Languages size={17} />
@@ -309,10 +365,34 @@ export function SettingsView() {
                       <option value="txt">Plain text (.txt)</option>
                     </select>
                   </SettingRow>
+                  <SettingRow title={t('settings.dailyWordGoal')} hint={t('settings.dailyWordGoalHint')}>
+                    <div className="inline-unit">
+                      <input className="input compact number" type="number" min={0} max={1000000} step={50} value={settings.dailyWordGoal} onChange={(event) => void save({ dailyWordGoal: Number(event.target.value) || 0 })} />
+                      <span>{t('common.words')}</span>
+                    </div>
+                  </SettingRow>
+                  <SettingRow title={t('settings.autoVersions')} hint={t('settings.autoVersionsHint')}>
+                    <Toggle checked={settings.autoVersions} onChange={(value) => void save({ autoVersions: value })} label={t('settings.autoVersions')} />
+                  </SettingRow>
+                  <SettingRow title={t('settings.autoVersionInterval')} hint={t('settings.autoVersionIntervalHint')}>
+                    <select className="input compact" value={settings.autoVersionInterval} disabled={!settings.autoVersions} onChange={(event) => void save({ autoVersionInterval: Number(event.target.value) })}>
+                      <option value={5}>5 min</option>
+                      <option value={15}>15 min</option>
+                      <option value={30}>30 min</option>
+                      <option value={60}>60 min</option>
+                      <option value={120}>120 min</option>
+                    </select>
+                  </SettingRow>
+                  <SettingRow title={t('settings.autoVersionWords')} hint={t('settings.autoVersionWordsHint')}>
+                    <div className="inline-unit">
+                      <input className="input compact number" type="number" min={1} max={100000} value={settings.autoVersionWordDelta} disabled={!settings.autoVersions} onChange={(event) => void save({ autoVersionWordDelta: Number(event.target.value) || 250 })} />
+                      <span>{t('common.words')}</span>
+                    </div>
+                  </SettingRow>
                 </div>
                 <div className="info-card">
-                  <LayoutTemplate size={17} />
-                  <div><strong>Real pages, real files</strong><p>Page size and margins are stored with each document. AUREN exports the same page geometry to DOCX, ODT, and PDF.</p></div>
+                  <History size={17} />
+                  <div><strong>Automatic snapshots</strong><p>AUREN keeps an earlier copy when the time or word threshold is reached, before the next save overwrites it. Snapshots stay in the local version history and can be compared or restored.</p></div>
                 </div>
               </SettingsPanel>
             )}
@@ -331,9 +411,14 @@ export function SettingsView() {
                 </div>
                 <div className="settings-group">
                   <SettingRow title={t('settings.backup')} hint={t('settings.backupHint')}>
-                    <button className="btn btn-soft btn-sm" onClick={() => void backup()} disabled={backingUp}>
-                      {backingUp ? <Spinner size={13} /> : <Download size={13} />} {t('settings.backup')}
-                    </button>
+                    <div className="setting-inline">
+                      <button className="btn btn-soft btn-sm" onClick={() => void backup()} disabled={backingUp}>
+                        {backingUp ? <Spinner size={13} /> : <Download size={13} />} {t('settings.backup')}
+                      </button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => void restoreBackup()} disabled={restoring}>
+                        {restoring ? <Spinner size={13} /> : <RotateCcw size={13} />} {t('settings.restoreBackup')}
+                      </button>
+                    </div>
                   </SettingRow>
                   <SettingRow title={t('settings.lastBackup')} hint="Backups are plain ZIP archives you can store anywhere.">
                     <span className="setting-value">{settings.lastBackupAt ? formatDate(settings.lastBackupAt, settings.language, 'long') : t('settings.never')}</span>
@@ -441,7 +526,7 @@ export function SettingsView() {
             {section === 'about' && (
               <SettingsPanel title={t('settings.about')} description={t('app.tagline')}>
                 <div className="about-hero">
-                  <div className="about-mark">◆</div>
+                  <div className="about-mark"><BrandMark size={42} /></div>
                   <div>
                     <h2>AUREN</h2>
                     <p>{t('settings.aboutBody')}</p>
