@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="AUREN is a premium, local-first Windows word processor for long-form writing. Real page layout, DOCX and PDF, version history, private library, optional AI. No account, no cloud, no telemetry.">
+<meta name="theme-color" content="#0c0c12">
+<title>AUREN — Create without limits.</title>
+<style>
+  :root{
+    --bg:#09090e; --bg-2:#0d0d14; --panel:#12121b; --panel-2:#171722;
+    --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+    --ink:#f4f2fa; --muted:#aaa7bb; --faint:#77738c;
+    --accent:#9b8afb; --accent-2:#5aa7f7; --accent-soft:rgba(155,138,251,.13);
+    --ok:#48c6a2; --shadow:0 28px 80px -24px rgba(0,0,0,.75);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--ink); line-height:1.65;
+    font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  }
+  body::before{
+    content:""; position:fixed; inset:0; z-index:-2; pointer-events:none;
+    background:
+      radial-gradient(60rem 34rem at 50% -16rem,var(--accent-soft),transparent 64%),
+      radial-gradient(46rem 30rem at 100% 108%,rgba(90,167,247,.07),transparent 70%);
+  }
+  body::after{
+    content:""; position:fixed; inset:0; z-index:-3; pointer-events:none;
+    background-image:radial-gradient(rgba(255,255,255,.035) 1px,transparent 1px);
+    background-size:28px 28px;
+    mask-image:linear-gradient(to bottom,rgba(0,0,0,.85),transparent 55%);
+    -webkit-mask-image:linear-gradient(to bottom,rgba(0,0,0,.85),transparent 55%);
+  }
+  ::selection{background:rgba(155,138,251,.32)}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{color:#bdb1ff}
+  a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
+  img{display:block;max-width:100%}
+  .wrap{width:min(1120px,100%);margin:0 auto;padding:0 24px}
+  .serif{font-family:Georgia,"Times New Roman",serif}
+
+  /* Nav */
+  header{
+    position:sticky;top:0;z-index:60;
+    background:rgba(9,9,14,.78);backdrop-filter:blur(16px) saturate(160%);
+    -webkit-backdrop-filter:blur(16px) saturate(160%);border-bottom:1px solid var(--line);
+  }
+  .nav{display:flex;align-items:center;height:66px;gap:12px}
+  .brand{display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:700;letter-spacing:.22em;font-size:13px}
+  .brand img{width:28px;height:28px;border-radius:8px}
+  .nav-links{margin-left:auto;display:flex;align-items:center;gap:4px}
+  .nav-links a{padding:8px 12px;border-radius:9px;color:var(--muted);font-size:13.5px;font-weight:500}
+  .nav-links a:hover{color:var(--ink);background:rgba(255,255,255,.05)}
+  .nav-cta{
+    margin-left:8px;background:var(--accent);color:#0b0a12!important;font-weight:700;
+    padding:8px 15px;font-size:13px
+  }
+  .nav-cta:hover{color:#0b0a12!important;filter:brightness(1.1)}
+  @media(max-width:760px){.nav-links a:not(.nav-cta){display:none}}
+
+  /* Buttons */
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:10px;
+    min-height:46px;padding:0 22px;border-radius:12px;font-weight:650;font-size:14.5px;
+    transition:transform .14s ease,filter .14s ease,border-color .14s ease,background .14s ease;
+  }
+  .btn:active{transform:scale(.98)}
+  .btn-primary{background:var(--accent);color:#0b0a12}
+  .btn-primary:hover{color:#0b0a12;filter:brightness(1.1)}
+  .btn-ghost{border:1px solid var(--line-2);color:var(--ink);background:rgba(255,255,255,.02)}
+  .btn-ghost:hover{color:var(--ink);border-color:rgba(255,255,255,.28);background:rgba(255,255,255,.05)}
+  .btn svg{width:16px;height:16px;flex:none}
+
+  /* Hero */
+  .hero{padding:92px 0 26px;text-align:center}
+  .badge{
+    display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 14px;border-radius:999px;
+    border:1px solid var(--line-2);background:var(--panel);color:var(--muted);
+    font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase
+  }
+  .badge .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px rgba(72,198,162,.12)}
+  .hero h1{
+    margin:26px 0 12px;font-size:clamp(42px,7vw,74px);line-height:1.02;font-weight:500;letter-spacing:-.045em;
+  }
+  .hero h1 em{font-style:normal;color:var(--accent)}
+  .hero .sub-fr{color:var(--faint);font-size:14px;letter-spacing:.18em;text-transform:uppercase}
+  .hero p.lead{
+    margin:22px auto 30px;max-width:640px;color:var(--muted);font-size:clamp(15px,2.1vw,18px)
+  }
+  .cta-row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .fineprint{margin-top:16px;color:var(--faint);font-size:12.5px}
+  .pills{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-top:34px}
+  .pill{
+    display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px;border-radius:999px;
+    border:1px solid var(--line);background:rgba(255,255,255,.025);color:var(--muted);font-size:11.5px;font-weight:600
+  }
+  .pill i{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+
+  /* Preview */
+  .preview{max-width:1000px;margin:58px auto 0;border-radius:18px;border:1px solid var(--line-2);overflow:hidden;background:var(--panel);box-shadow:var(--shadow)}
+  .preview-bar{height:48px;display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--panel-2)}
+  .preview-bar img{width:20px;height:20px;border-radius:6px}
+  .preview-bar strong{font-size:12px;letter-spacing:.16em}
+  .preview-bar span{margin-left:auto;color:var(--faint);font-size:11px}
+  .preview img.shot{width:100%;height:auto}
+
+  /* Sections */
+  section{padding:90px 0}
+  .section-head{max-width:680px;margin-bottom:38px}
+  .eyebrow{color:var(--accent);font-size:11px;font-weight:750;letter-spacing:.16em;text-transform:uppercase}
+  h2{margin:10px 0 10px;font-size:clamp(28px,4vw,40px);line-height:1.15;font-weight:550;letter-spacing:-.03em}
+  .section-head p{color:var(--muted);font-size:15px}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+  .card{
+    background:linear-gradient(160deg,var(--panel),var(--bg-2));border:1px solid var(--line);
+    border-radius:16px;padding:24px;transition:border-color .18s ease,transform .18s ease
+  }
+  .card:hover{border-color:var(--line-2);transform:translateY(-2px)}
+  .card .num{font-size:10px;font-weight:800;color:var(--accent);letter-spacing:.16em}
+  .card h3{margin:14px 0 8px;font-size:16px;font-weight:650}
+  .card p{color:var(--muted);font-size:13.5px}
+
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:center}
+  .split figure{border-radius:16px;border:1px solid var(--line);overflow:hidden;background:var(--panel)}
+  .split figure img{width:100%;height:auto}
+  .split figcaption{padding:10px 14px;color:var(--faint);font-size:11px;border-top:1px solid var(--line)}
+  .checks{list-style:none;display:grid;gap:13px;margin-top:22px}
+  .checks li{display:flex;gap:11px;color:var(--muted);font-size:14px}
+  .checks li::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none;margin-top:8px}
+
+  .quote{
+    border-left:2px solid var(--accent);padding:6px 0 6px 24px;margin-top:26px;
+    color:var(--ink);font-family:Georgia,serif;font-size:20px;line-height:1.5
+  }
+
+  /* Download */
+  .download-wrap{background:linear-gradient(160deg,rgba(155,138,251,.08),transparent 60%);border:1px solid var(--line-2);border-radius:20px;padding:38px;text-align:center}
+  .download-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:28px;text-align:left}
+  .download-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px}
+  .download-card h3{font-size:16px;margin-bottom:6px}
+  .download-card p{color:var(--muted);font-size:13px;margin-bottom:18px}
+  .download-card .btn{width:100%}
+  @media(max-width:760px){.split,.download-grid{grid-template-columns:1fr}}
+
+  /* FAQ */
+  details{border-bottom:1px solid var(--line);padding:18px 0}
+  summary{cursor:pointer;font-weight:600;font-size:15px;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:16px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:"+";color:var(--accent);font-size:20px;line-height:1}
+  details[open] summary::after{content:"−"}
+  details p{color:var(--muted);font-size:14px;margin-top:12px;max-width:760px}
+
+  footer{border-top:1px solid var(--line);padding:34px 0;color:var(--faint);font-size:12.5px}
+  .foot{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .foot img{width:22px;height:22px;border-radius:6px}
+  .foot nav{margin-left:auto;display:flex;gap:16px;flex-wrap:wrap}
+  @media(max-width:760px){.foot nav{margin-left:0;width:100%}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="brand" href="#top"><img src="logo.png" alt="AUREN logo"> AUREN</a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#writing">Writing</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#download">Download</a>
+      <a class="nav-cta" href="https://github.com/RexenGPU/Auren/releases/latest">Get AUREN</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap">
+    <section class="hero">
+      <span class="badge"><span class="dot"></span> Version 1.1.0 · Windows 10/11 x64</span>
+      <h1 class="serif">Create <em>without limits.</em></h1>
+      <div class="sub-fr">Créer sans limites.</div>
+      <p class="lead">A premium, local-first word processor for long-form writing, reports, essays, letters, and everyday documents. Real pages, real files, and no account required.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/RexenGPU/Auren/releases/latest">Download for Windows
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16"/></svg>
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/RexenGPU/Auren">View on GitHub
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-5-5 5 5-5 5"/></svg>
+        </a>
+      </div>
+      <span class="fineprint">Offline by default · No telemetry · No automatic uploads</span>
+      <div class="pills">
+        <span class="pill"><i></i> Real page layout</span>
+        <span class="pill"><i></i> DOCX &amp; PDF export</span>
+        <span class="pill"><i></i> English &amp; Français</span>
+        <span class="pill"><i></i> Optional BYOK AI</span>
+      </div>
+    </section>
+
+    <div class="preview">
+      <div class="preview-bar"><img src="logo.png" alt=""><strong>AUREN</strong><span>auren://library/home</span></div>
+      <img class="shot" src="https://raw.githubusercontent.com/RexenGPU/Auren/main/qa-shots/05-home-midnight.png" alt="AUREN home screen in the Midnight theme">
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">What is included</span>
+        <h2>A writing surface, not a web page.</h2>
+        <p>AUREN combines a calm editor with genuine page geometry, a private library, and interchange formats that keep your work portable.</p>
+      </div>
+      <div class="grid">
+        <article class="card"><span class="num">01 / EDITOR</span><h3>Real pages</h3><p>A4, A3, Letter, Legal and custom sizes. Portrait or landscape, four margins, one to three columns, headers and footers with live page tokens.</p></article>
+        <article class="card"><span class="num">02 / FORMATS</span><h3>Your files, your format</h3><p>Import and export DOCX, DOC, ODT, RTF, TXT, Markdown, HTML, PDF, and a lossless AUREN format. DOCX uses a custom OOXML importer and exporter.</p></article>
+        <article class="card"><span class="num">03 / LIBRARY</span><h3>A private library</h3><p>Folders, workspaces, favorites, color labels, previews, autosave, crash-recovery drafts, and a full version history stored on this device.</p></article>
+        <article class="card"><span class="num">04 / HISTORY</span><h3>Versions you can trust</h3><p>Compare any version with the current document word by word. Automatic snapshots and a “Before restore” copy make every change reversible.</p></article>
+        <article class="card"><span class="num">05 / SEARCH</span><h3>Find the right words</h3><p>SQLite FTS5 full-text search with accent-insensitive matching and contextual snippets. Search inside your documents, not just their titles.</p></article>
+        <article class="card"><span class="num">06 / PRIVACY</span><h3>No account, no cloud</h3><p>No telemetry, no analytics, no automatic uploads. Spellcheck dictionaries are bundled. AI is off until you enable it and supply your own key.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="writing">
+    <div class="wrap split">
+      <figure>
+        <img src="https://raw.githubusercontent.com/RexenGPU/Auren/main/qa-shots/30-sample-editor-top.png" alt="AUREN editor showing a formatted document across a real page">
+        <figcaption>The editor uses measured page boundaries and a page deck.</figcaption>
+      </figure>
+      <div>
+        <span class="eyebrow">Built for long-form work</span>
+        <h2>Keep the thread. See the shape.</h2>
+        <p style="color:var(--muted)">AUREN gives you the structure of a desktop publisher with the quiet of a plain-text editor. The new 1.1.0 release adds a local writing dashboard so you can see momentum without leaving the app.</p>
+        <ul class="checks">
+          <li>Word-level version diff and direct restore</li>
+          <li>Configurable automatic snapshots by time or word count</li>
+          <li>Daily word goal, streak and 12-week heatmap on Home</li>
+          <li>Persistent custom dictionary for names and jargon</li>
+          <li>Focus mode (F8) and zen mode (F11) for deep work</li>
+        </ul>
+        <div class="quote">“A calm place for ambitious work.”</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="privacy">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">Privacy and data</span>
+        <h2>Your documents stay yours.</h2>
+        <p>AUREN is fully usable offline. Your library is a folder of ordinary files on your computer, with an optional SQLite index for fast search.</p>
+      </div>
+      <div class="grid">
+        <article class="card"><span class="num">LOCAL FIRST</span><h3>No cloud requirement</h3><p>No sign-in, no sync service, and no AUREN server. Move your library folder anywhere from Settings.</p></article>
+        <article class="card"><span class="num">ENCRYPTION</span><h3>Optional at rest</h3><p>AES-256-GCM for documents, drafts, versions and templates, with the key protected by Windows DPAPI.</p></article>
+        <article class="card"><span class="num">BACKUP</span><h3>Restore in-app</h3><p>Create a ZIP backup and restore it from Settings. A safety copy is written first and a failed restore rolls back automatically.</p></article>
+        <article class="card"><span class="num">ASSISTANT</span><h3>AI only when asked</h3><p>Bring your own OpenAI, Anthropic, Gemini, or OpenAI-compatible key. Document context is sent only after explicit consent.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="download">
+    <div class="wrap">
+      <div class="download-wrap">
+        <span class="eyebrow">Download</span>
+        <h2>AUREN 1.1.0 for Windows</h2>
+        <p style="color:var(--muted)">Both builds are self-contained. Node.js, Rust, Python, Visual Studio and WebView2 are not required.</p>
+        <div class="download-grid">
+          <div class="download-card">
+            <h3>Installer</h3>
+            <p>NSIS installer · per-user or custom location · desktop and Start-menu shortcuts.</p>
+            <a class="btn btn-primary" href="https://github.com/RexenGPU/Auren/releases/download/v1.1.0/Auren-Setup.exe">Download Auren-Setup.exe</a>
+          </div>
+          <div class="download-card">
+            <h3>Portable</h3>
+            <p>Single-file launcher · no installation · no administrator rights required.</p>
+            <a class="btn btn-ghost" href="https://github.com/RexenGPU/Auren/releases/download/v1.1.0/Auren.exe">Download Auren.exe</a>
+          </div>
+        </div>
+        <p class="fineprint">Not code-signed. Windows SmartScreen may warn on first launch — choose More info → Run anyway if you trust the source. <a href="https://github.com/RexenGPU/Auren/releases/tag/v1.1.0">Release notes and checksums</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="section-head"><span class="eyebrow">Questions</span><h2>Good to know.</h2></div>
+      <details><summary>Does AUREN need an internet connection?</summary><p>No. The editor, library, spellcheck dictionaries, and all export pipelines work offline. Internet is only needed if you choose to use the optional AI assistant with your own key.</p></details>
+      <details><summary>Where are my documents stored?</summary><p>By default under <code>%APPDATA%\Auren\library</code>. You can change the location in Settings → Storage; AUREN copies the library and keeps the old copy as a safety backup.</p></details>
+      <details><summary>Can Word open what I write?</summary><p>Yes. DOCX is the primary interchange format with real tables, images, headers, footers, page numbers, columns, and footnotes. Word may reflow pages differently because it uses its own layout engine; use PDF when exact pagination matters.</p></details>
+      <details><summary>Is the AI assistant enabled by default?</summary><p>No. It is disabled until you enable it in Settings, add your own API key, and ask a question. Sharing document text requires a separate consent step.</p></details>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <img src="logo.png" alt="">
+    <span>AUREN · Create without limits.</span>
+    <nav>
+      <a href="https://github.com/RexenGPU/Auren">Source</a>
+      <a href="https://github.com/RexenGPU/Auren/releases/latest">Releases</a>
+      <a href="https://github.com/RexenGPU/Auren#readme">README</a>
+      <a href="https://github.com/RexenGPU/Auren/issues">Issues</a>
+    </nav>
+  </div>
+</footer>
+
+</body>
+</html>
