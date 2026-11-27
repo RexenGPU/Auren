@@ -64,7 +64,12 @@
   }
   .nav{display:flex;align-items:center;height:68px;gap:12px}
   .brand{display:flex;align-items:center;gap:11px;color:var(--ink);font-weight:700;letter-spacing:.24em;font-size:13px}
-  .brand img{width:29px;height:29px;border-radius:9px;box-shadow:0 0 0 1px rgba(255,255,255,.12),0 8px 22px rgba(139,124,246,.3)}
+  .brand img{
+    width:36px;height:36px;border-radius:0;background:none;box-shadow:none;
+    filter:drop-shadow(0 8px 18px rgba(139,124,246,.32));
+    transition:transform .2s ease,filter .2s ease
+  }
+  .brand:hover img{transform:translateY(-1px) rotate(-4deg);filter:drop-shadow(0 12px 24px rgba(139,124,246,.45))}
   .nav-links{margin-left:auto;display:flex;align-items:center;gap:4px}
   .nav-links a{padding:8px 13px;border-radius:10px;color:var(--muted);font-size:13.5px;font-weight:500;transition:color .16s ease,background .16s ease}
   .nav-links a:hover{color:var(--ink);background:rgba(255,255,255,.055)}
@@ -159,7 +164,7 @@
       radial-gradient(circle at 18px 4px,#e6a556 3px,transparent 3.5px),
       radial-gradient(circle at 32px 4px,#48c6a2 3px,transparent 3.5px);
   }
-  .preview-bar img{width:20px;height:20px;border-radius:6px;margin-left:6px}
+  .preview-bar img{width:22px;height:22px;border-radius:0;background:none;box-shadow:none;margin-left:6px}
   .preview-bar strong{font-size:11.5px;letter-spacing:.2em;color:var(--ink)}
   .preview-bar span{margin-left:auto;color:var(--faint);font-size:11px;font-family:ui-monospace,Consolas,monospace}
   .preview img.shot{width:100%;height:auto;transition:transform .4s ease}
@@ -274,7 +279,7 @@
   /* Footer */
   footer{border-top:1px solid var(--line);padding:38px 0;color:var(--faint);font-size:12.5px;background:rgba(0,0,0,.14)}
   .foot{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
-  .foot img{width:23px;height:23px;border-radius:7px;box-shadow:0 0 0 1px rgba(255,255,255,.1)}
+  .foot img{width:28px;height:28px;border-radius:0;background:none;box-shadow:none;filter:drop-shadow(0 6px 14px rgba(139,124,246,.28))}
   .foot nav{margin-left:auto;display:flex;gap:18px;flex-wrap:wrap}
   @media(max-width:760px){.foot nav{margin-left:0;width:100%}}
 
